@@ -90,7 +90,9 @@ async def test_create_draft_no_photos_error(test_settings: Settings, test_storag
     )
 
     with pytest.raises(NoPhotosAvailableError):
-        await pub_service.create_draft(admin_id=100, original_text="Sell limit: 1234")
+        await pub_service.create_draft(
+            admin_id=100, original_text="Sell limit: 1234\nStop loss: 1240"
+        )
 
 
 @pytest.mark.asyncio
@@ -107,7 +109,9 @@ async def test_publish_draft_success_and_idempotency(
         mock_client, test_settings, test_storage, seeded_photo_service
     )
 
-    draft, signal_id = await pub_service.create_draft(100, "Sell limit: 75000")
+    draft, signal_id = await pub_service.create_draft(
+        100, "Sell limit: 75000\nStop loss: 76000"
+    )
     record = await pub_service.publish_draft(draft.draft_id)
 
     assert record.id == signal_id
@@ -172,7 +176,7 @@ async def test_publish_handlers_preview_and_approval(
     await state_manager.set_state(100, AdminStep.AWAITING_SIGNAL_TEXT)
 
     msg = MagicMock(spec=Message)
-    msg.text = "Sell limit: 80000"
+    msg.text = "Sell limit: 80000\nStop loss: 81000"
     msg.from_user = MagicMock(spec=User)
     msg.from_user.id = 100
     msg.chat = MagicMock()
@@ -242,7 +246,9 @@ async def test_publish_via_copy_message_success(
         mock_client, test_settings, test_storage, seeded_photo_service
     )
 
-    draft, signal_id = await pub_service.create_draft(100, "Sell limit: 75000")
+    draft, signal_id = await pub_service.create_draft(
+        100, "Sell limit: 75000\nStop loss: 76000"
+    )
     assert draft.source_message_id == 10
     assert draft.source_chat_id == test_settings.SOURCE_CHANNEL_ID
 
@@ -293,7 +299,7 @@ async def test_publish_preview_via_copy_message_handler(
     await state_manager.set_state(100, AdminStep.AWAITING_SIGNAL_TEXT)
 
     msg = MagicMock(spec=Message)
-    msg.text = "Sell limit: 80000"
+    msg.text = "Sell limit: 80000\nStop loss: 81000"
     msg.from_user = MagicMock(spec=User)
     msg.from_user.id = 100
     msg.chat = MagicMock()

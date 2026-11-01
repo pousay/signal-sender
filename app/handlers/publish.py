@@ -44,7 +44,7 @@ def register_publish_handlers(
         if state.step != AdminStep.AWAITING_SIGNAL_TEXT:
             return
 
-        signal_text = message.text or ""
+        signal_text = (message.text or "").replace("\r\n", "\n").replace("\r", "\n")
 
         try:
             draft, signal_id = await publication_service.create_draft(user_id, signal_text)
