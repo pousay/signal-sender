@@ -200,7 +200,9 @@ class PhotoService:
         logger.info("Starting photo synchronization from channel: %s", source_channel)
 
         try:
-            if self.user_client is not None and getattr(self.user_client, "is_connected", True):
+            if self.user_client is not None and bool(
+                getattr(self.user_client, "is_connected", False)
+            ):
                 collected_photos = await self._scan_via_user_client(source_channel, limit=limit)
             elif isinstance(getattr(self.client, "bot_token", None), str):
                 collected_photos = await self._scan_via_bot_client(source_channel, limit=limit)

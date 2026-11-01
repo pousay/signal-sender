@@ -174,19 +174,20 @@ When an administrator (`ADMIN_IDS`) sends `/start` in a private chat, the bot di
 
 ### 2. 🖼 بروزرسانی عکس‌ها (Update Photos)
 1. Scans `SOURCE_CHANNEL_ID` history:
-   - **Mode A (User MTProto Session - Recommended)**: If `USER_SESSION_STRING` is set in `.env`, the bot uses Kurigram's MTProto user client with `get_chat_history()` to read complete channel history without bot restrictions.
-   - **Mode B (Bot Admin Batch Scanning)**: If `USER_SESSION_STRING` is not configured, the bot retrieves message batches (up to 200 messages at a time) via `get_messages()`. This requires the bot to be an **Administrator** in `SOURCE_CHANNEL_ID`.
+   - **Mode A (Automatic User Client Session — Default & Recommended)**: If `USER_SESSION_STRING` is not provided in `.env`, the bot automatically initializes a persistent user client session (`data/sessions/user_client.session`). On first run, Kurigram prompts in the terminal for your phone number and Telegram confirmation code. Future runs authenticate seamlessly without prompting.
+   - **Mode B (In-Memory Session String)**: If `USER_SESSION_STRING` is set in `.env`, the bot loads the user session directly into memory without creating `.session` files.
+   - **Mode C (Bot Admin Batch Fallback)**: If the user client is not authenticated or fails to connect, the bot falls back to batch message scanning via `get_messages()` (requiring the bot to be an **Administrator** in `SOURCE_CHANNEL_ID`).
 2. Filters photo messages only (ignores text, voice, documents).
 3. Deduplicates photos using `file_unique_id`.
 4. Completely replaces stored photo pool on success; retains previous collection on failure.
 5. Reports total count and status to administrator in Persian.
 
-#### Generating a User Session String
-Telegram MTProto disallows bot tokens from calling `messages.GetHistory`. To enable unrestricted history reading without channel size limits:
+#### Optional: Generating a User Session String
+If you prefer storing your session entirely in `.env` as a string rather than a `.session` file:
 ```bash
 python3 scripts/generate_session.py
 ```
-Follow the interactive prompts to enter your `API_ID`, `API_HASH`, phone number, and Telegram login code. Copy the generated `USER_SESSION_STRING="..."` into your `.env` file.
+Follow the interactive prompts to enter your `API_ID`, `API_HASH`, phone number, and login code. Copy the printed `USER_SESSION_STRING="..."` into `.env`.
 
 ### 3. ⭐ ارسال اشتراک ویژه (Send Premium Subscription)
 1. Prompts for numeric Telegram user ID (strictly rejects `@username`).

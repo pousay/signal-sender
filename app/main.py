@@ -44,7 +44,10 @@ class Application:
             workdir=str(session_dir),
         )
 
-        self.user_client: Client | None = None
+        # MTProto User Client for channel history scanning:
+        # If USER_SESSION_STRING is provided, run in-memory with the exported string.
+        # Otherwise, manage persistent user session via data/sessions/user_client.session,
+        # which Kurigram interactively provisions on first start if not yet authorized.
         if self.settings.USER_SESSION_STRING:
             self.user_client = Client(
                 name="user_session",
@@ -52,6 +55,13 @@ class Application:
                 api_hash=self.settings.API_HASH,
                 session_string=self.settings.USER_SESSION_STRING,
                 in_memory=True,
+            )
+        else:
+            self.user_client = Client(
+                name="user_client",
+                api_id=self.settings.API_ID,
+                api_hash=self.settings.API_HASH,
+                workdir=str(session_dir),
             )
 
         self.photo_service = PhotoService(
@@ -117,8 +127,17 @@ class Application:
         logger.info("Connecting MTProto bot client...")
         await self.client.start()
 
-        # Connect optional MTProto user client for channel history scanning
+        # Connect MTProto user client for channel history scanning
         if self.user_client is not None:
+            session_file = self.settings.DATA_DIR / "sessions" / "user_client.session"
+            if not self.settings.USER_SESSION_STRING and not session_file.exists():
+                print("\n" + "=" * 65)
+                print("  Telegram MTProto User Client Setup (Kurigram)")
+                print("=" * 65)
+                print("To scan channel photos without bot restrictions, Kurigram")
+                print("will now prompt for your phone number to create a session.")
+                print("This is a one-time interactive setup; session is saved locally.\n")
+
             logger.info("Connecting MTProto user client for channel history scanning...")
             try:
                 await self.user_client.start()

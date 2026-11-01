@@ -57,18 +57,32 @@ async def test_application_start_and_stop_lifecycle(test_settings: Settings):
     bot_user.username = "test_signal_bot"
     mock_client.get_me = AsyncMock(return_value=bot_user)
 
+    mock_user_client = MagicMock(spec=Client)
+    mock_user_client.is_connected = True
+    mock_user_client.start = AsyncMock()
+    mock_user_client.stop = AsyncMock()
+
+    user_account = MagicMock(spec=User)
+    user_account.id = 54321
+    user_account.first_name = "UserMTProto"
+    mock_user_client.get_me = AsyncMock(return_value=user_account)
+
     app.client = mock_client
+    app.user_client = mock_user_client
     app.publication_service.client = mock_client
     app.subscription_service.client = mock_client
     app.photo_service.client = mock_client
+    app.photo_service.user_client = mock_user_client
 
     # Test start
     await app.start()
     assert mock_client.start.called
+    assert mock_user_client.start.called
     assert app.settings.BOT_USERNAME == "test_signal_bot"
     assert app.subscription_service._worker_task is not None
 
     # Test stop
     await app.stop()
     assert mock_client.stop.called
+    assert mock_user_client.stop.called
     assert app.subscription_service._worker_task is None

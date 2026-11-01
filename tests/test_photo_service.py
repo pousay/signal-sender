@@ -236,6 +236,44 @@ async def test_sync_photos_via_user_client(
 
 
 @pytest.mark.asyncio
+async def test_sync_photos_disconnected_user_client_falls_back_to_bot(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify disconnected user_client falls back to bot get_messages batch scan."""
+    mock_bot = MagicMock(spec=Client)
+    mock_bot.bot_token = "123456:mock_token_string"
+
+    mock_chat = MagicMock()
+    mock_raw = MagicMock()
+    mock_raw.read_inbox_max_id = 2
+    mock_raw.available_min_id = 1
+    mock_raw.pinned_msg_id = 0
+    mock_chat.raw = mock_raw
+    mock_bot.get_chat = AsyncMock(return_value=mock_chat)
+
+    batch_messages = [
+        create_mock_photo_message(1, "fallback_fid_1", "fallback_uid_1"),
+    ]
+    mock_bot.get_messages = AsyncMock(return_value=batch_messages)
+
+    mock_user_client = MagicMock(spec=Client)
+    mock_user_client.is_connected = False
+
+    service = PhotoService(
+        client=mock_bot,
+        settings=test_settings,
+        storage=test_storage,
+        user_client=mock_user_client,
+    )
+    result = await service.sync_channel_photos()
+
+    assert result.success is True
+    assert result.count == 1
+    assert mock_bot.get_chat.called
+    assert mock_bot.get_messages.called
+
+
+@pytest.mark.asyncio
 async def test_sync_photos_via_bot_batch_messages(
     test_settings: Settings, test_storage: StorageManager
 ):
