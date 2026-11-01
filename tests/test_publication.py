@@ -211,6 +211,7 @@ async def test_publish_handlers_preview_and_approval(
     cb.message.chat = MagicMock()
     cb.message.chat.type = ChatType.PRIVATE
     cb.message.reply_text = AsyncMock()
+    cb.message.delete = AsyncMock()
 
     # Match group for regex
     mock_match = MagicMock()
@@ -221,6 +222,7 @@ async def test_publish_handlers_preview_and_approval(
 
     cb.answer.assert_called_once()
     cb.message.reply_text.assert_called_once()
+    cb.message.delete.assert_called_once()
     assert (
         Messages.PUBLISH_SUCCESS.format(message_id=555)
         in cb.message.reply_text.call_args[0][0]

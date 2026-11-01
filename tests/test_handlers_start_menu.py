@@ -166,6 +166,50 @@ async def test_cancel_callback_clears_state(
 
 
 @pytest.mark.asyncio
+async def test_cancel_callback_deletes_post_preview_in_pv(
+    mock_app: Client, settings: Settings, state_manager: StateManager
+):
+    """Verify rejecting post preview in AWAITING_CONFIRMATION deletes preview message in PV."""
+    captured_callbacks = []
+
+    def capture_on_callback(*args, **kwargs):
+        def decorator(f):
+            captured_callbacks.append(f)
+            return f
+
+        return decorator
+
+    mock_app.on_callback_query = capture_on_callback
+    mock_app.send_message = AsyncMock()
+    register_admin_menu_handlers(mock_app, settings, state_manager)
+
+    cancel_handler = captured_callbacks[0]
+
+    # Pre-populate state in AWAITING_CONFIRMATION (post preview state)
+    await state_manager.set_state(
+        100, AdminStep.AWAITING_CONFIRMATION, data={"draft_id": "draft_1"}
+    )
+
+    cb = MagicMock(spec=CallbackQuery)
+    cb.from_user = MagicMock()
+    cb.from_user.id = 100
+    cb.answer = AsyncMock()
+    cb.message = MagicMock(spec=Message)
+    cb.message.chat = MagicMock()
+    cb.message.chat.type = ChatType.PRIVATE
+    cb.message.delete = AsyncMock()
+
+    await cancel_handler(mock_app, cb)
+
+    cb.answer.assert_called_once()
+    cb.message.delete.assert_called_once()
+    mock_app.send_message.assert_called_once_with(chat_id=100, text=Messages.OPERATION_CANCELLED)
+    state = await state_manager.get_state(100)
+    assert state.step == AdminStep.IDLE
+    assert state.data == {}
+
+
+@pytest.mark.asyncio
 async def test_user_start_deep_link_routing(tmp_path: Path, settings: Settings):
     """Verify /start <signal_id> directly delivers signal details via start router."""
     storage = StorageManager(data_dir=tmp_path / "data")

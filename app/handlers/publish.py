@@ -152,6 +152,14 @@ def register_publish_handlers(
             success_text = Messages.PUBLISH_SUCCESS.format(message_id=record.published_message_id)
             if callback_query.message:
                 await callback_query.message.reply_text(success_text)
+                try:
+                    await callback_query.message.delete()
+                except Exception as del_err:
+                    logger.warning(
+                        "Could not delete preview message for admin %s: %s", user_id, del_err
+                    )
+            else:
+                await client.send_message(chat_id=user_id, text=success_text)
             logger.info("Admin %s approved publication for signal #%d", user_id, record.id)
 
         except SignalAlreadyPublishedError:

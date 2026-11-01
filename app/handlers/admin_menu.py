@@ -25,19 +25,35 @@ def register_admin_menu_handlers(
     @require_admin_private(settings)
     async def cancel_callback(client: Client, callback_query: CallbackQuery) -> None:
         user_id = callback_query.from_user.id
+        state = await state_manager.get_state(user_id)
         await state_manager.clear_state(user_id)
         await callback_query.answer()
 
-        try:
-            # Edit the message to show cancellation and remove active controls
+        # If rejecting the post preview message, delete the message in admin PV
+        if state.step == AdminStep.AWAITING_CONFIRMATION or (
+            callback_query.message and getattr(callback_query.message, "photo", None)
+        ):
             if callback_query.message:
-                await callback_query.message.edit_text(
-                    text=Messages.OPERATION_CANCELLED,
-                    reply_markup=None,
-                )
-        except Exception as e:
-            logger.warning("Could not edit prompt on cancel for admin %s: %s", user_id, e)
-            await callback_query.message.reply_text(Messages.OPERATION_CANCELLED)
+                try:
+                    await callback_query.message.delete()
+                except Exception as del_err:
+                    logger.warning(
+                        "Could not delete post message on cancel for admin %s: %s",
+                        user_id,
+                        del_err,
+                    )
+            await client.send_message(chat_id=user_id, text=Messages.OPERATION_CANCELLED)
+        else:
+            try:
+                # Edit ordinary text prompts (e.g. prompt for signal text or user ID)
+                if callback_query.message:
+                    await callback_query.message.edit_text(
+                        text=Messages.OPERATION_CANCELLED,
+                        reply_markup=None,
+                    )
+            except Exception as e:
+                logger.warning("Could not edit prompt on cancel for admin %s: %s", user_id, e)
+                await callback_query.message.reply_text(Messages.OPERATION_CANCELLED)
 
         logger.info("Admin %s cancelled active workflow", user_id)
 
