@@ -65,3 +65,22 @@ def test_invalid_contact_admin_username():
             ADMIN_IDS="123",
             CONTACT_ADMIN_ID="@",  # empty after strip
         )
+
+
+def test_dotenv_source_parsing_admin_ids(tmp_path):
+    """Verify DotEnvSettingsSource parses comma-separated string without SettingsError."""
+    env_content = (
+        "BOT_TOKEN=123456:ABC\n"
+        "API_ID=1234567\n"
+        "API_HASH=0123456789abcdef\n"
+        "CHANNEL_ID=-1001234567890\n"
+        "SOURCE_CHANNEL_ID=-1009876543210\n"
+        "ADMIN_IDS=123456789, 987654321\n"
+        "CONTACT_ADMIN_ID=support_guru\n"
+    )
+    env_file = tmp_path / ".env"
+    env_file.write_text(env_content, encoding="utf-8")
+
+    settings = Settings(_env_file=env_file)
+    assert settings.ADMIN_IDS == {123456789, 987654321}
+    assert settings.CHANNEL_ID == -1001234567890

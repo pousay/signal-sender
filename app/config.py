@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     )
 
     # Administration
-    ADMIN_IDS: set[int] = Field(
+    ADMIN_IDS: str | set[int] | list[int] | int = Field(
         ...,
         description="Set of Telegram numeric user IDs with administrator rights",
     )
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
         description="Telegram bot username without @ (auto-discovered on startup if None)",
     )
 
-    @field_validator("ADMIN_IDS", mode="before")
+    @field_validator("ADMIN_IDS", mode="after")
     @classmethod
     def parse_admin_ids(cls, v: Any) -> set[int]:
         """Parse comma-separated string or iterable into a set of numeric Telegram IDs."""
