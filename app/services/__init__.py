@@ -1,5 +1,6 @@
 """Services package."""
 
+from app.services.backup_service import BackupService
 from app.services.photo_service import PhotoService, PhotoSyncResult
 from app.services.publication_service import (
     DraftNotFoundError,
@@ -11,6 +12,7 @@ from app.services.publication_service import (
 from app.services.subscription_service import SubscriptionService, SubscriptionServiceError
 
 __all__ = [
+    "BackupService",
     "DraftNotFoundError",
     "NoPhotosAvailableError",
     "PhotoService",
