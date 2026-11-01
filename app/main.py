@@ -44,7 +44,22 @@ class Application:
             workdir=str(session_dir),
         )
 
-        self.photo_service = PhotoService(self.client, self.settings, self.storage)
+        self.user_client: Client | None = None
+        if self.settings.USER_SESSION_STRING:
+            self.user_client = Client(
+                name="user_session",
+                api_id=self.settings.API_ID,
+                api_hash=self.settings.API_HASH,
+                session_string=self.settings.USER_SESSION_STRING,
+                in_memory=True,
+            )
+
+        self.photo_service = PhotoService(
+            client=self.client,
+            settings=self.settings,
+            storage=self.storage,
+            user_client=self.user_client,
+        )
         self.publication_service = PublicationService(
             self.client, self.settings, self.storage, self.photo_service
         )
@@ -102,6 +117,24 @@ class Application:
         logger.info("Connecting MTProto bot client...")
         await self.client.start()
 
+        # Connect optional MTProto user client for channel history scanning
+        if self.user_client is not None:
+            logger.info("Connecting MTProto user client for channel history scanning...")
+            try:
+                await self.user_client.start()
+                user_me = await self.user_client.get_me()
+                logger.info(
+                    "MTProto user client authenticated successfully as %s (ID: %d)",
+                    getattr(user_me, "first_name", "User"),
+                    getattr(user_me, "id", 0),
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not start MTProto user client: %s. "
+                    "Falling back to bot channel scanning.",
+                    e,
+                )
+
         # Discover bot username dynamically
         me = await self.client.get_me()
         self.settings.BOT_USERNAME = me.username or "bot"
@@ -126,6 +159,10 @@ class Application:
         if self.client.is_connected:
             with suppress(Exception):
                 await self.client.stop()
+
+        if self.user_client and getattr(self.user_client, "is_connected", False):
+            with suppress(Exception):
+                await self.user_client.stop()
 
         self.release_single_instance_lock()
         logger.info("Shutdown completed successfully.")

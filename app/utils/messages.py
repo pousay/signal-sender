@@ -70,6 +70,18 @@ class Messages:
         "❌ خطا در همگام‌سازی تصاویر از کانال مرجع: {error}\n"
         "مجموعه تصاویر قبلی دست‌نخورده باقی ماند."
     )
+    PHOTO_SYNC_BOT_RESTRICTION = (
+        "تلگرام اجازه خواندن تاریخچه را به توکن ربات نمی‌دهد.\n"
+        "برای حل این مورد:\n"
+        "۱. ربات را به عنوان Admin با دسترسی خواندن پیام‌ها به کانال مرجع اضافه نمایید.\n"
+        "۲. یا متغیر USER_SESSION_STRING را در فایل .env تنظیم کنید.\n"
+        "(با اجرای scripts/generate_session.py)"
+    )
+    PHOTO_SYNC_NO_ACCESS = (
+        "ربات به کانال مرجع دسترسی ندارد.\n"
+        "لطفاً اطمینان حاصل کنید ربات به عنوان Admin در کانال مرجع عضو است "
+        "یا USER_SESSION_STRING در .env تنظیم شده است."
+    )
 
     # Subscription Workflow Messages
     PROMPT_USER_ID = "لطفاً **شناسه عددی (Numeric User ID)** کاربر را ارسال نمایید:"
