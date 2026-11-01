@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     BOT_TOKEN: str = Field(..., description="Telegram Bot API token")
     API_ID: int = Field(..., description="Telegram MTProto API ID")
     API_HASH: str = Field(..., description="Telegram MTProto API Hash")
+    USER_SESSION_STRING: str | None = Field(
+        default=None,
+        description="Optional MTProto user session string for full channel history scanning",
+    )
 
     # Channels
     CHANNEL_ID: int | str = Field(..., description="Target channel ID or @username")
@@ -55,6 +59,15 @@ class Settings(BaseSettings):
         default=None,
         description="Telegram bot username without @ (auto-discovered on startup if None)",
     )
+
+    @field_validator("USER_SESSION_STRING", mode="before")
+    @classmethod
+    def parse_user_session_string(cls, v: Any) -> str | None:
+        """Strip whitespace and convert empty string to None."""
+        if isinstance(v, str):
+            clean = v.strip()
+            return clean if clean else None
+        return v
 
     @field_validator("ADMIN_IDS", mode="after")
     @classmethod

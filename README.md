@@ -113,6 +113,11 @@ BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
 API_ID=1234567
 API_HASH=0123456789abcdef0123456789abcdef
 
+# Optional: MTProto user session string for unrestricted channel history scanning
+# Generate using: python3 scripts/generate_session.py
+# If omitted, bot uses batch message scanning (requires bot to be channel admin)
+USER_SESSION_STRING=
+
 # Target channel for signal posts and source channel for photo sync
 # Can be numeric ID (e.g., -1001234567890) or @username
 CHANNEL_ID=-1001234567890
@@ -168,11 +173,20 @@ When an administrator (`ADMIN_IDS`) sends `/start` in a private chat, the bot di
    `📝 برای مشاهده مشخصات پـوزیشن کلیک کنید`
 
 ### 2. 🖼 بروزرسانی عکس‌ها (Update Photos)
-1. Scans `SOURCE_CHANNEL_ID` history via MTProto pagination.
+1. Scans `SOURCE_CHANNEL_ID` history:
+   - **Mode A (User MTProto Session - Recommended)**: If `USER_SESSION_STRING` is set in `.env`, the bot uses Kurigram's MTProto user client with `get_chat_history()` to read complete channel history without bot restrictions.
+   - **Mode B (Bot Admin Batch Scanning)**: If `USER_SESSION_STRING` is not configured, the bot retrieves message batches (up to 200 messages at a time) via `get_messages()`. This requires the bot to be an **Administrator** in `SOURCE_CHANNEL_ID`.
 2. Filters photo messages only (ignores text, voice, documents).
 3. Deduplicates photos using `file_unique_id`.
 4. Completely replaces stored photo pool on success; retains previous collection on failure.
 5. Reports total count and status to administrator in Persian.
+
+#### Generating a User Session String
+Telegram MTProto disallows bot tokens from calling `messages.GetHistory`. To enable unrestricted history reading without channel size limits:
+```bash
+python3 scripts/generate_session.py
+```
+Follow the interactive prompts to enter your `API_ID`, `API_HASH`, phone number, and Telegram login code. Copy the generated `USER_SESSION_STRING="..."` into your `.env` file.
 
 ### 3. ⭐ ارسال اشتراک ویژه (Send Premium Subscription)
 1. Prompts for numeric Telegram user ID (strictly rejects `@username`).

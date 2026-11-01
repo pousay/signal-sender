@@ -199,3 +199,114 @@ async def test_update_photos_callback_handler(
     cb.answer.assert_called_once()
     mock_service.sync_channel_photos.assert_called_once()
     status_msg.edit_text.assert_called_once_with(Messages.PHOTO_SYNC_SUCCESS.format(count=5))
+
+
+@pytest.mark.asyncio
+async def test_sync_photos_via_user_client(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify user_client get_chat_history is preferred when configured."""
+    mock_messages = [
+        create_mock_photo_message(10, "user_fid_1", "user_uid_1"),
+        create_mock_photo_message(20, "user_fid_2", "user_uid_2"),
+    ]
+
+    async def mock_history(*args, **kwargs) -> AsyncGenerator[Message, None]:
+        for m in mock_messages:
+            yield m
+
+    mock_bot_client = MagicMock(spec=Client)
+    mock_user_client = MagicMock(spec=Client)
+    mock_user_client.is_connected = True
+    mock_user_client.get_chat_history = mock_history
+
+    service = PhotoService(
+        client=mock_bot_client,
+        settings=test_settings,
+        storage=test_storage,
+        user_client=mock_user_client,
+    )
+    result = await service.sync_channel_photos()
+
+    assert result.success is True
+    assert result.count == 2
+    stored = await test_storage.photos.load()
+    assert stored.count == 2
+    assert stored.photos[0].file_unique_id == "user_uid_1"
+
+
+@pytest.mark.asyncio
+async def test_sync_photos_via_bot_batch_messages(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify bot client scans via get_chat and batch get_messages."""
+    mock_bot = MagicMock(spec=Client)
+    mock_bot.bot_token = "123456:mock_token_string"
+
+    mock_chat = MagicMock()
+    mock_raw = MagicMock()
+    mock_raw.read_inbox_max_id = 4
+    mock_raw.available_min_id = 1
+    mock_raw.pinned_msg_id = 0
+    mock_chat.raw = mock_raw
+    mock_bot.get_chat = AsyncMock(return_value=mock_chat)
+
+    batch_messages = [
+        create_mock_photo_message(1, "bot_fid_1", "bot_uid_1"),
+        create_mock_text_message(2),
+        create_mock_photo_message(3, "bot_fid_2", "bot_uid_2"),
+        create_mock_photo_message(4, "bot_fid_1_dup", "bot_uid_1"),
+    ]
+    mock_bot.get_messages = AsyncMock(return_value=batch_messages)
+
+    service = PhotoService(client=mock_bot, settings=test_settings, storage=test_storage)
+    result = await service.sync_channel_photos()
+
+    assert result.success is True
+    assert result.count == 2
+    assert mock_bot.get_chat.called
+    assert mock_bot.get_messages.called
+
+    stored = await test_storage.photos.load()
+    assert stored.count == 2
+    assert stored.photos[0].file_unique_id == "bot_uid_1"
+    assert stored.photos[1].file_unique_id == "bot_uid_2"
+
+
+@pytest.mark.asyncio
+async def test_sync_photos_bot_method_invalid_error_handling(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify Telegram 400 BOT_METHOD_INVALID maps to Persian explanation."""
+    mock_bot = MagicMock(spec=Client)
+    mock_bot.bot_token = "123456:mock_token_string"
+    mock_bot.get_chat = AsyncMock(
+        side_effect=RuntimeError(
+            "Telegram says: [400 BOT_METHOD_INVALID] - The specified method "
+            "cannot be used by bots. (caused by 'messages.GetHistory')"
+        )
+    )
+
+    service = PhotoService(client=mock_bot, settings=test_settings, storage=test_storage)
+    result = await service.sync_channel_photos()
+
+    assert result.success is False
+    assert result.error == Messages.PHOTO_SYNC_BOT_RESTRICTION
+
+
+@pytest.mark.asyncio
+async def test_sync_photos_chat_admin_required_error_handling(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify CHAT_ADMIN_REQUIRED maps to Persian explanation."""
+    mock_bot = MagicMock(spec=Client)
+    mock_bot.bot_token = "123456:mock_token_string"
+    mock_bot.get_chat = AsyncMock(
+        side_effect=RuntimeError("Telegram says: [400 CHAT_ADMIN_REQUIRED]")
+    )
+
+    service = PhotoService(client=mock_bot, settings=test_settings, storage=test_storage)
+    result = await service.sync_channel_photos()
+
+    assert result.success is False
+    assert result.error == Messages.PHOTO_SYNC_NO_ACCESS
