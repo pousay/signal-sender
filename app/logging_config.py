@@ -67,6 +67,9 @@ class AdminAlertHandler(logging.Handler):
         self._recent_signatures: dict[str, float] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
+        if record.levelno < logging.WARNING:
+            return
+
         # Prevent recursive notification loops
         if record.name.startswith(("pyrogram", "urllib3", "app.logging_config")):
             return
