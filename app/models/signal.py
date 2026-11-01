@@ -52,7 +52,13 @@ class SignalDraft(BaseModel):
     stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
     target: str | None = Field(default=None, description="Extracted Target value")
     public_caption: str = Field(..., description="Prepared public caption")
-    photo_file_id: str = Field(..., description="Selected photo file_id")
+    photo_file_id: str = Field(..., description="Selected photo file_id or local path")
+    source_message_id: int | None = Field(
+        default=None, description="Original channel message ID for copy_message"
+    )
+    source_chat_id: int | str | None = Field(
+        default=None, description="Source channel identifier for copy_message"
+    )
     created_at: datetime = Field(default_factory=utc_now, description="Draft creation timestamp")
 
 

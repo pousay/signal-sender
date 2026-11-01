@@ -78,13 +78,37 @@ def register_publish_handlers(
             return
 
         preview_caption = f"{Messages.PREVIEW_TITLE}\n\n{draft.public_caption}"
+        preview_keyboard = get_preview_keyboard(draft.draft_id)
 
         try:
-            preview_msg = await message.reply_photo(
-                photo=draft.photo_file_id,
-                caption=preview_caption,
-                reply_markup=get_preview_keyboard(draft.draft_id),
-            )
+            preview_msg = None
+            # 1. Primary approach: copy_message directly from source channel by message ID
+            if (
+                draft.source_message_id
+                and draft.source_chat_id
+                and hasattr(client, "copy_message")
+            ):
+                try:
+                    preview_msg = await client.copy_message(
+                        chat_id=user_id,
+                        from_chat_id=draft.source_chat_id,
+                        message_id=draft.source_message_id,
+                        caption=preview_caption,
+                        reply_markup=preview_keyboard,
+                    )
+                except Exception as copy_err:
+                    logger.warning(
+                        "copy_message failed for preview: %s. Falling back to reply_photo.",
+                        copy_err,
+                    )
+
+            # 2. Fallback: reply_photo using draft.photo_file_id
+            if not preview_msg:
+                preview_msg = await message.reply_photo(
+                    photo=draft.photo_file_id,
+                    caption=preview_caption,
+                    reply_markup=preview_keyboard,
+                )
 
             # Update draft with bot-owned Telegram file_id if available
             if getattr(preview_msg, "photo", None) and getattr(preview_msg.photo, "file_id", None):

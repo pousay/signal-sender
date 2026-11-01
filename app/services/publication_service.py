@@ -104,6 +104,8 @@ class PublicationService:
             target=parsed.target,
             public_caption=public_caption,
             photo_file_id=photo_media,
+            source_message_id=photo.message_id,
+            source_chat_id=photo.chat_id or self.settings.SOURCE_CHANNEL_ID,
             created_at=utc_now(),
         )
 
@@ -144,17 +146,39 @@ class PublicationService:
         bot_username = await self.get_bot_username()
         keyboard = get_channel_post_keyboard(bot_username, signal_id)
 
-        try:
-            # Publish 1 photo with modified caption and inline keyboard attached to same post
-            published_msg = await self.client.send_photo(
-                chat_id=self.settings.CHANNEL_ID,
-                photo=draft.photo_file_id,
-                caption=draft.public_caption,
-                reply_markup=keyboard,
-            )
-        except Exception as e:
-            logger.error("Failed to publish signal #%d to channel: %s", signal_id, e)
-            raise PublicationError(f"Telegram publication failed: {e}") from e
+        published_msg = None
+        # 1. Primary approach: copy_message directly from source channel by message ID
+        if (
+            draft.source_message_id
+            and draft.source_chat_id
+            and hasattr(self.client, "copy_message")
+        ):
+            try:
+                published_msg = await self.client.copy_message(
+                    chat_id=self.settings.CHANNEL_ID,
+                    from_chat_id=draft.source_chat_id,
+                    message_id=draft.source_message_id,
+                    caption=draft.public_caption,
+                    reply_markup=keyboard,
+                )
+            except Exception as copy_err:
+                logger.warning(
+                    "copy_message failed for channel publication: %s. Falling back to send_photo.",
+                    copy_err,
+                )
+
+        # 2. Fallback: send_photo using draft.photo_file_id
+        if not published_msg:
+            try:
+                published_msg = await self.client.send_photo(
+                    chat_id=self.settings.CHANNEL_ID,
+                    photo=draft.photo_file_id,
+                    caption=draft.public_caption,
+                    reply_markup=keyboard,
+                )
+            except Exception as e:
+                logger.error("Failed to publish signal #%d to channel: %s", signal_id, e)
+                raise PublicationError(f"Telegram publication failed: {e}") from e
 
         # Construct published record
         record = SignalRecord(
