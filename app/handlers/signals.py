@@ -2,8 +2,8 @@
 
 import logging
 
-from pyrogram import Client, filters
-from pyrogram.types import CallbackQuery, Message
+from pyrogram import Client, ContinuePropagation, filters
+from pyrogram.types import CallbackQuery, LinkPreviewOptions, Message
 
 from app.config import Settings
 from app.keyboards.common import get_support_keyboard
@@ -58,19 +58,20 @@ async def deliver_signal_details(
             support_username=f"@{settings.CONTACT_ADMIN_ID}"
         )
         keyboard = get_support_keyboard(settings.CONTACT_ADMIN_ID)
+        preview_opts = LinkPreviewOptions(is_disabled=True)
         if isinstance(reply_target, CallbackQuery):
             await reply_target.answer()
             if reply_target.message:
                 await reply_target.message.reply_text(
                     text=support_text,
                     reply_markup=keyboard,
-                    disable_web_page_preview=True,
+                    link_preview_options=preview_opts,
                 )
         else:
             await reply_target.reply_text(
                 text=support_text,
                 reply_markup=keyboard,
-                disable_web_page_preview=True,
+                link_preview_options=preview_opts,
             )
         logger.info(
             "Non-premium user %d prompted for support link on signal #%d",
@@ -96,7 +97,7 @@ def register_signal_handlers(
         parts = (message.text or "").split(maxsplit=1)
         if len(parts) <= 1 or not parts[1].strip():
             # Ordinary /start without payload; handled by start router
-            return
+            raise ContinuePropagation
 
         raw_arg = parts[1].strip()
         if not raw_arg.isdigit():

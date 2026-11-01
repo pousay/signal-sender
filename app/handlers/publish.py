@@ -2,7 +2,7 @@
 
 import logging
 
-from pyrogram import Client, filters
+from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.types import CallbackQuery, Message
 
 from app.config import Settings
@@ -42,7 +42,7 @@ def register_publish_handlers(
         state = await state_manager.get_state(user_id)
 
         if state.step != AdminStep.AWAITING_SIGNAL_TEXT:
-            return
+            raise ContinuePropagation
 
         signal_text = (message.text or "").replace("\r\n", "\n").replace("\r", "\n")
 
