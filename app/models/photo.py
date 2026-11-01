@@ -18,6 +18,7 @@ class PhotoRecord(BaseModel):
     file_unique_id: str = Field(
         ..., description="Stable Telegram unique identifier for deduplication"
     )
+    local_path: str | None = Field(default=None, description="Local cached photo path")
     message_id: int | None = Field(default=None, description="Original channel message ID")
     synced_at: datetime = Field(default_factory=utc_now, description="Sync UTC timestamp")
 

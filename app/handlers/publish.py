@@ -85,6 +85,20 @@ def register_publish_handlers(
                 caption=preview_caption,
                 reply_markup=get_preview_keyboard(draft.draft_id),
             )
+
+            # Update draft with bot-owned Telegram file_id if available
+            if getattr(preview_msg, "photo", None) and getattr(preview_msg.photo, "file_id", None):
+                new_fid = preview_msg.photo.file_id
+
+                def _update_draft_fid(col):
+                    d = col.get_draft(draft.draft_id)
+                    if d:
+                        d.photo_file_id = new_fid
+
+                await publication_service.storage.signals.mutate(
+                    _update_draft_fid, make_backup=False
+                )
+
             await state_manager.set_state(
                 user_id=user_id,
                 step=AdminStep.AWAITING_CONFIRMATION,

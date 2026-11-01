@@ -348,3 +348,85 @@ async def test_sync_photos_chat_admin_required_error_handling(
 
     assert result.success is False
     assert result.error == Messages.PHOTO_SYNC_NO_ACCESS
+
+
+@pytest.mark.asyncio
+async def test_ensure_photo_file_returns_existing_local_file(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify ensure_photo_file returns existing local path without downloading."""
+    photos_dir = test_settings.DATA_DIR / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    local_file = photos_dir / "existing_uid.jpg"
+    local_file.write_bytes(b"image_bytes")
+
+    record = PhotoRecord(
+        file_id="tg_fid_1",
+        file_unique_id="existing_uid",
+        local_path=str(local_file),
+    )
+
+    mock_client = MagicMock(spec=Client)
+    service = PhotoService(client=mock_client, settings=test_settings, storage=test_storage)
+
+    result_path = await service.ensure_photo_file(record)
+    assert result_path == str(local_file)
+    assert not mock_client.download_media.called
+
+
+@pytest.mark.asyncio
+async def test_ensure_photo_file_downloads_on_demand(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify ensure_photo_file downloads photo if local file is missing."""
+    photos_dir = test_settings.DATA_DIR / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    target_file = photos_dir / "download_uid.jpg"
+
+    async def fake_download(*args, **kwargs):
+        target_file.write_bytes(b"downloaded_bytes")
+        return str(target_file)
+
+    mock_client = MagicMock(spec=Client)
+    mock_client.download_media = AsyncMock(side_effect=fake_download)
+    mock_client.get_messages = AsyncMock(return_value=None)
+
+    record = PhotoRecord(
+        file_id="tg_fid_download",
+        file_unique_id="download_uid",
+        message_id=42,
+    )
+
+    service = PhotoService(client=mock_client, settings=test_settings, storage=test_storage)
+    result_path = await service.ensure_photo_file(record)
+
+    assert result_path == str(target_file)
+    assert target_file.exists()
+    assert target_file.read_bytes() == b"downloaded_bytes"
+
+
+@pytest.mark.asyncio
+async def test_sync_photos_purges_orphaned_local_files(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify sync removes local photo files that no longer exist in channel."""
+    photos_dir = test_settings.DATA_DIR / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    orphaned_file = photos_dir / "deleted_uid.jpg"
+    orphaned_file.write_bytes(b"old_data")
+
+    # Sync single new photo
+    new_messages = [create_mock_photo_message(10, "new_fid", "active_uid")]
+
+    async def mock_history(*args, **kwargs) -> AsyncGenerator[Message, None]:
+        for m in new_messages:
+            yield m
+
+    mock_client = MagicMock(spec=Client)
+    mock_client.get_chat_history = mock_history
+
+    service = PhotoService(client=mock_client, settings=test_settings, storage=test_storage)
+    result = await service.sync_channel_photos()
+
+    assert result.success is True
+    assert not orphaned_file.exists()

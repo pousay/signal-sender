@@ -180,6 +180,9 @@ async def test_publish_handlers_preview_and_approval(
 
     preview_msg = MagicMock(spec=Message)
     preview_msg.id = 777
+    preview_photo = MagicMock()
+    preview_photo.file_id = "bot_fresh_file_id"
+    preview_msg.photo = preview_photo
     msg.reply_photo = AsyncMock(return_value=preview_msg)
 
     await captured_message_handler(mock_app, msg)
@@ -188,6 +191,12 @@ async def test_publish_handlers_preview_and_approval(
     state = await state_manager.get_state(100)
     assert state.step == AdminStep.AWAITING_CONFIRMATION
     draft_id = state.data["draft_id"]
+
+    # Verify draft was updated with bot-owned file_id
+    stored_col = await test_storage.signals.load()
+    draft_obj = stored_col.get_draft(draft_id)
+    assert draft_obj is not None
+    assert draft_obj.photo_file_id == "bot_fresh_file_id"
 
     # 2. Admin approves publication via callback
     cb = MagicMock(spec=CallbackQuery)
