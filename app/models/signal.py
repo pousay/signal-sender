@@ -1,0 +1,56 @@
+"""Signal and draft data models."""
+
+from datetime import datetime, timezone
+from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+def utc_now() -> datetime:
+    """Return timezone-aware current UTC datetime."""
+    return datetime.now(timezone.utc)
+
+
+class SignalStatus(str, Enum):
+    """Lifecycle status of a signal."""
+
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class SignalRecord(BaseModel):
+    """Persisted signal entity."""
+
+    id: int = Field(..., description="Unique integer signal ID")
+    original_text: str = Field(..., description="Original raw text submitted by admin")
+    sell_limit: str = Field(..., description="Extracted Sell limit value")
+    stop_loss: str | None = Field(default=None, description="Extracted Stop loss value if parsed")
+    target: str | None = Field(default=None, description="Extracted Target value if parsed")
+    public_caption: str = Field(..., description="Generated public caption with deep link")
+    photo_file_id: str = Field(..., description="Telegram photo file_id used for publication")
+    channel_id: int | str = Field(..., description="Target channel identifier")
+    published_message_id: int | None = Field(
+        default=None, description="Telegram message ID in target channel"
+    )
+    status: SignalStatus = Field(default=SignalStatus.PUBLISHED, description="Publication status")
+    created_at: datetime = Field(default_factory=utc_now, description="Creation timestamp")
+    published_at: datetime | None = Field(default=None, description="Publication timestamp")
+    idempotency_key: str | None = Field(
+        default=None, description="Unique key preventing duplicate publications"
+    )
+
+
+class SignalDraft(BaseModel):
+    """In-flight draft awaiting admin approval before channel publication."""
+
+    draft_id: str = Field(..., description="Unique draft identifier")
+    admin_id: int = Field(..., description="Admin who created the draft")
+    original_text: str = Field(..., description="Original signal text")
+    sell_limit: str = Field(..., description="Extracted Sell limit value")
+    stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
+    target: str | None = Field(default=None, description="Extracted Target value")
+    public_caption: str = Field(..., description="Prepared public caption")
+    photo_file_id: str = Field(..., description="Selected photo file_id")
+    created_at: datetime = Field(default_factory=utc_now, description="Draft creation timestamp")
