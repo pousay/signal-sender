@@ -54,3 +54,35 @@ class SignalDraft(BaseModel):
     public_caption: str = Field(..., description="Prepared public caption")
     photo_file_id: str = Field(..., description="Selected photo file_id")
     created_at: datetime = Field(default_factory=utc_now, description="Draft creation timestamp")
+
+
+class SignalsCollection(BaseModel):
+    """Container for stored signals and active drafts."""
+
+    version: int = Field(default=1, description="Schema version")
+    signals: dict[int, SignalRecord] = Field(
+        default_factory=dict, description="Map of signal_id to SignalRecord"
+    )
+    drafts: dict[str, SignalDraft] = Field(
+        default_factory=dict, description="Map of draft_id to SignalDraft"
+    )
+
+    def get_signal(self, signal_id: int) -> SignalRecord | None:
+        """Retrieve signal by ID."""
+        return self.signals.get(signal_id)
+
+    def add_signal(self, signal: SignalRecord) -> None:
+        """Store published signal."""
+        self.signals[signal.id] = signal
+
+    def get_draft(self, draft_id: str) -> SignalDraft | None:
+        """Retrieve draft by ID."""
+        return self.drafts.get(draft_id)
+
+    def save_draft(self, draft: SignalDraft) -> None:
+        """Save or update draft."""
+        self.drafts[draft.draft_id] = draft
+
+    def remove_draft(self, draft_id: str) -> SignalDraft | None:
+        """Delete draft if exists."""
+        return self.drafts.pop(draft_id, None)
