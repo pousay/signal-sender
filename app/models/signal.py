@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -25,8 +25,15 @@ class SignalRecord(BaseModel):
 
     id: int = Field(..., description="Unique integer signal ID")
     original_text: str = Field(..., description="Original raw text submitted by admin")
-    sell_limit: str = Field(..., description="Extracted Sell limit value")
-    stop_loss: str | None = Field(default=None, description="Extracted Stop loss value if parsed")
+    order_type: str = Field(
+        default="Sell limit",
+        description="Extracted order type (Buy limit, Sell limit, etc.)",
+    )
+    entry_price: str | None = Field(default=None, description="Extracted entry price value")
+    sell_limit: str | None = Field(
+        default=None, description="Legacy sell limit alias for backward compatibility"
+    )
+    stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
     target: str | None = Field(default=None, description="Extracted Target value if parsed")
     public_caption: str = Field(..., description="Generated public caption with deep link")
     photo_file_id: str = Field(..., description="Telegram photo file_id used for publication")
@@ -41,6 +48,14 @@ class SignalRecord(BaseModel):
         default=None, description="Unique key preventing duplicate publications"
     )
 
+    @model_validator(mode="after")
+    def _sync_price_fields(self) -> "SignalRecord":
+        if not self.entry_price and self.sell_limit:
+            self.entry_price = self.sell_limit
+        elif not self.sell_limit and self.entry_price:
+            self.sell_limit = self.entry_price
+        return self
+
 
 class SignalDraft(BaseModel):
     """In-flight draft awaiting admin approval before channel publication."""
@@ -48,7 +63,14 @@ class SignalDraft(BaseModel):
     draft_id: str = Field(..., description="Unique draft identifier")
     admin_id: int = Field(..., description="Admin who created the draft")
     original_text: str = Field(..., description="Original signal text")
-    sell_limit: str = Field(..., description="Extracted Sell limit value")
+    order_type: str = Field(
+        default="Sell limit",
+        description="Extracted order type (Buy limit, Sell limit, etc.)",
+    )
+    entry_price: str | None = Field(default=None, description="Extracted entry price value")
+    sell_limit: str | None = Field(
+        default=None, description="Legacy sell limit alias for backward compatibility"
+    )
     stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
     target: str | None = Field(default=None, description="Extracted Target value")
     public_caption: str = Field(..., description="Prepared public caption")
@@ -60,6 +82,14 @@ class SignalDraft(BaseModel):
         default=None, description="Source channel identifier for copy_message"
     )
     created_at: datetime = Field(default_factory=utc_now, description="Draft creation timestamp")
+
+    @model_validator(mode="after")
+    def _sync_price_fields(self) -> "SignalDraft":
+        if not self.entry_price and self.sell_limit:
+            self.entry_price = self.sell_limit
+        elif not self.sell_limit and self.entry_price:
+            self.sell_limit = self.entry_price
+        return self
 
 
 class SignalsCollection(BaseModel):

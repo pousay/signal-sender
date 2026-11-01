@@ -39,9 +39,11 @@ async def deliver_signal_details(
 
     if is_premium:
         details = format_premium_signal_details(
-            sell_limit=signal.sell_limit,
+            order_type=getattr(signal, "order_type", "Sell limit"),
+            entry_price=getattr(signal, "entry_price", signal.sell_limit),
             stop_loss=signal.stop_loss,
             target=signal.target,
+            sell_limit=signal.sell_limit,
         )
         if isinstance(reply_target, CallbackQuery):
             await reply_target.answer()
