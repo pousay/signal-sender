@@ -29,7 +29,13 @@ def register_all_handlers(
     backup_service: BackupService | None = None,
 ) -> None:
     """Register all bot message and callback handlers."""
-    register_start_handler(app, settings, state_manager)
+    register_start_handler(
+        app,
+        settings,
+        state_manager,
+        storage=storage,
+        subscription_service=subscription_service,
+    )
     register_admin_menu_handlers(app, settings, state_manager)
     if photo_service is not None:
         register_photo_handlers(app, settings, photo_service)

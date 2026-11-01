@@ -2,7 +2,7 @@
 
 import logging
 
-from pyrogram import Client, filters
+from pyrogram import Client, ContinuePropagation, filters
 from pyrogram.types import Message
 
 from app.config import Settings
@@ -29,6 +29,10 @@ def register_subscription_handlers(
     async def handle_subscription_step_input(client: Client, message: Message) -> None:
         user_id = message.from_user.id
         state = await state_manager.get_state(user_id)
+
+        if state.step not in (AdminStep.AWAITING_USER_ID, AdminStep.AWAITING_DURATION_DAYS):
+            raise ContinuePropagation
+
         raw_text = (message.text or "").strip()
 
         # Step 1: Receiving numeric user ID
