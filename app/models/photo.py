@@ -20,6 +20,7 @@ class PhotoRecord(BaseModel):
     )
     local_path: str | None = Field(default=None, description="Local cached photo path")
     message_id: int | None = Field(default=None, description="Original channel message ID")
+    chat_id: int | str | None = Field(default=None, description="Source channel identifier")
     synced_at: datetime = Field(default_factory=utc_now, description="Sync UTC timestamp")
 
 

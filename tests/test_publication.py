@@ -225,3 +225,86 @@ async def test_publish_handlers_preview_and_approval(
     # State cleared after publication
     final_state = await state_manager.get_state(100)
     assert final_state.step == AdminStep.IDLE
+
+
+@pytest.mark.asyncio
+async def test_publish_via_copy_message_success(
+    test_settings: Settings, test_storage: StorageManager, seeded_photo_service: PhotoService
+):
+    """Verify publication uses copy_message by default when available."""
+    mock_client = MagicMock(spec=Client)
+    copied_post = MagicMock(spec=Message)
+    copied_post.id = 8888
+    mock_client.copy_message = AsyncMock(return_value=copied_post)
+    mock_client.send_photo = AsyncMock()
+
+    pub_service = PublicationService(
+        mock_client, test_settings, test_storage, seeded_photo_service
+    )
+
+    draft, signal_id = await pub_service.create_draft(100, "Sell limit: 75000")
+    assert draft.source_message_id == 10
+    assert draft.source_chat_id == test_settings.SOURCE_CHANNEL_ID
+
+    record = await pub_service.publish_draft(draft.draft_id)
+
+    assert record.id == signal_id
+    assert record.published_message_id == 8888
+    assert record.status == SignalStatus.PUBLISHED
+
+    mock_client.copy_message.assert_called_once()
+    call_kwargs = mock_client.copy_message.call_args[1]
+    assert call_kwargs["chat_id"] == test_settings.CHANNEL_ID
+    assert call_kwargs["from_chat_id"] == test_settings.SOURCE_CHANNEL_ID
+    assert call_kwargs["message_id"] == 10
+    assert not mock_client.send_photo.called
+
+
+@pytest.mark.asyncio
+async def test_publish_preview_via_copy_message_handler(
+    test_settings: Settings, test_storage: StorageManager, seeded_photo_service: PhotoService
+):
+    """Verify preview handler sends copy_message to admin when available."""
+    mock_app = MagicMock(spec=Client)
+    captured_message_handler = None
+
+    def capture_on_message(*args, **kwargs):
+        def decorator(f):
+            nonlocal captured_message_handler
+            captured_message_handler = f
+            return f
+
+        return decorator
+
+    mock_app.on_message = capture_on_message
+    mock_app.on_callback_query = MagicMock()
+
+    preview_msg = MagicMock(spec=Message)
+    preview_msg.id = 777
+    preview_photo = MagicMock()
+    preview_photo.file_id = "bot_copied_file_id"
+    preview_msg.photo = preview_photo
+    mock_app.copy_message = AsyncMock(return_value=preview_msg)
+
+    pub_service = PublicationService(mock_app, test_settings, test_storage, seeded_photo_service)
+    state_manager = StateManager()
+    register_publish_handlers(mock_app, test_settings, state_manager, pub_service)
+
+    await state_manager.set_state(100, AdminStep.AWAITING_SIGNAL_TEXT)
+
+    msg = MagicMock(spec=Message)
+    msg.text = "Sell limit: 80000"
+    msg.from_user = MagicMock(spec=User)
+    msg.from_user.id = 100
+    msg.chat = MagicMock()
+    msg.chat.type = ChatType.PRIVATE
+    msg.reply_photo = AsyncMock()
+
+    await captured_message_handler(mock_app, msg)
+
+    mock_app.copy_message.assert_called_once()
+    call_kwargs = mock_app.copy_message.call_args[1]
+    assert call_kwargs["chat_id"] == 100
+    assert call_kwargs["from_chat_id"] == test_settings.SOURCE_CHANNEL_ID
+    assert call_kwargs["message_id"] == 10
+    assert not msg.reply_photo.called

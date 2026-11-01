@@ -100,6 +100,7 @@ class PhotoService:
                             file_unique_id=unique_id,
                             local_path=local_path,
                             message_id=message.id,
+                            chat_id=source_channel,
                             synced_at=utc_now(),
                         )
                     )
@@ -132,6 +133,7 @@ class PhotoService:
                             file_unique_id=unique_id,
                             local_path=local_path,
                             message_id=message.id,
+                            chat_id=source_channel,
                             synced_at=utc_now(),
                         )
                     )
@@ -217,6 +219,7 @@ class PhotoService:
                                     file_unique_id=unique_id,
                                     local_path=local_path,
                                     message_id=msg.id,
+                                    chat_id=source_channel,
                                     synced_at=utc_now(),
                                 )
                             )
