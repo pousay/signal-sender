@@ -8,6 +8,7 @@ from app.services.publication_service import (
     PublicationService,
     SignalAlreadyPublishedError,
 )
+from app.services.subscription_service import SubscriptionService, SubscriptionServiceError
 
 __all__ = [
     "DraftNotFoundError",
@@ -17,4 +18,6 @@ __all__ = [
     "PublicationError",
     "PublicationService",
     "SignalAlreadyPublishedError",
+    "SubscriptionService",
+    "SubscriptionServiceError",
 ]
