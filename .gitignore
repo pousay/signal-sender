@@ -38,6 +38,7 @@ env/
 # Data, runtime logs and backups
 data/*.json
 data/backups/
+data/photos/
 backups/
 logs/
 *.log

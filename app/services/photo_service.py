@@ -4,6 +4,8 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from pyrogram import Client
 
@@ -46,6 +48,29 @@ class PhotoService:
         self.settings = settings
         self.storage = storage
 
+    async def _download_photo_if_needed(
+        self,
+        client: Client,
+        message: Any,
+        unique_id: str,
+        photos_dir: Path,
+    ) -> str | None:
+        """Download photo file locally if not already present."""
+        target_file = photos_dir / f"{unique_id}.jpg"
+        if target_file.exists() and target_file.stat().st_size > 0:
+            return str(target_file)
+
+        if not hasattr(client, "download_media"):
+            return None
+
+        try:
+            dl = await client.download_media(message, file_name=str(target_file))
+            if dl and target_file.exists():
+                return str(target_file)
+        except Exception as e:
+            logger.debug("Could not pre-download photo %s: %s", unique_id, e)
+        return None
+
     async def _scan_via_user_client(
         self, source_channel: int | str, limit: int = 0
     ) -> list[PhotoRecord]:
@@ -55,6 +80,8 @@ class PhotoService:
 
         collected_photos: list[PhotoRecord] = []
         seen_unique_ids: set[str] = set()
+        photos_dir = self.settings.DATA_DIR / "photos"
+        photos_dir.mkdir(parents=True, exist_ok=True)
 
         async for message in self.user_client.get_chat_history(
             chat_id=source_channel, limit=limit
@@ -64,10 +91,14 @@ class PhotoService:
                 unique_id = photo.file_unique_id
                 if unique_id and unique_id not in seen_unique_ids:
                     seen_unique_ids.add(unique_id)
+                    local_path = await self._download_photo_if_needed(
+                        self.user_client, message, unique_id, photos_dir
+                    )
                     collected_photos.append(
                         PhotoRecord(
                             file_id=photo.file_id,
                             file_unique_id=unique_id,
+                            local_path=local_path,
                             message_id=message.id,
                             synced_at=utc_now(),
                         )
@@ -81,6 +112,8 @@ class PhotoService:
         """Scan channel history using provided client's get_chat_history."""
         collected_photos: list[PhotoRecord] = []
         seen_unique_ids: set[str] = set()
+        photos_dir = self.settings.DATA_DIR / "photos"
+        photos_dir.mkdir(parents=True, exist_ok=True)
 
         async for message in client.get_chat_history(
             chat_id=source_channel, limit=limit
@@ -90,10 +123,14 @@ class PhotoService:
                 unique_id = photo.file_unique_id
                 if unique_id and unique_id not in seen_unique_ids:
                     seen_unique_ids.add(unique_id)
+                    local_path = await self._download_photo_if_needed(
+                        client, message, unique_id, photos_dir
+                    )
                     collected_photos.append(
                         PhotoRecord(
                             file_id=photo.file_id,
                             file_unique_id=unique_id,
+                            local_path=local_path,
                             message_id=message.id,
                             synced_at=utc_now(),
                         )
@@ -144,6 +181,9 @@ class PhotoService:
 
         collected_photos: list[PhotoRecord] = []
         seen_unique_ids: set[str] = set()
+        photos_dir = self.settings.DATA_DIR / "photos"
+        photos_dir.mkdir(parents=True, exist_ok=True)
+
         consecutive_empty = 0
         batch_size = 200
         current_id = min_id
@@ -168,10 +208,14 @@ class PhotoService:
                         unique_id = photo.file_unique_id
                         if unique_id and unique_id not in seen_unique_ids:
                             seen_unique_ids.add(unique_id)
+                            local_path = await self._download_photo_if_needed(
+                                self.client, msg, unique_id, photos_dir
+                            )
                             collected_photos.append(
                                 PhotoRecord(
                                     file_id=photo.file_id,
                                     file_unique_id=unique_id,
+                                    local_path=local_path,
                                     message_id=msg.id,
                                     synced_at=utc_now(),
                                 )
@@ -229,6 +273,14 @@ class PhotoService:
 
             await self.storage.metadata.mutate(_update_meta, make_backup=False)
 
+            # Purge orphaned local photo files no longer present in source channel
+            photos_dir = self.settings.DATA_DIR / "photos"
+            if photos_dir.exists():
+                active_names = {f"{p.file_unique_id}.jpg" for p in collected_photos}
+                for existing_file in photos_dir.glob("*.jpg"):
+                    if existing_file.name not in active_names:
+                        existing_file.unlink(missing_ok=True)
+
             logger.info(
                 "Photo synchronization succeeded: %d photos synced in %.2f seconds",
                 count,
@@ -272,3 +324,51 @@ class PhotoService:
         """Return the current number of available synchronized photos."""
         collection = await self.storage.photos.load()
         return collection.count
+
+    async def ensure_photo_file(self, photo: PhotoRecord) -> str:
+        """Ensure a local photo file exists for uploading, downloading on-demand if needed.
+
+        Returns local file path if available, falling back to photo.file_id.
+        """
+        photos_dir = self.settings.DATA_DIR / "photos"
+        photos_dir.mkdir(parents=True, exist_ok=True)
+        local_target = photos_dir / f"{photo.file_unique_id}.jpg"
+
+        if local_target.exists() and local_target.stat().st_size > 0:
+            return str(local_target)
+
+        download_client = (
+            self.user_client
+            if (self.user_client and getattr(self.user_client, "is_connected", False))
+            else self.client
+        )
+
+        if download_client and hasattr(download_client, "download_media"):
+            try:
+                # 1. Try downloading by channel message_id
+                if photo.message_id and hasattr(download_client, "get_messages"):
+                    msg = await download_client.get_messages(
+                        self.settings.SOURCE_CHANNEL_ID,
+                        photo.message_id,
+                    )
+                    if msg and getattr(msg, "photo", None):
+                        dl = await download_client.download_media(
+                            msg, file_name=str(local_target)
+                        )
+                        if dl and local_target.exists():
+                            return str(local_target)
+
+                # 2. Try downloading by file_id directly
+                dl = await download_client.download_media(
+                    photo.file_id, file_name=str(local_target)
+                )
+                if dl and local_target.exists():
+                    return str(local_target)
+            except Exception as e:
+                logger.warning(
+                    "On-demand photo download failed for %s: %s",
+                    photo.file_unique_id,
+                    e,
+                )
+
+        return photo.local_path or photo.file_id

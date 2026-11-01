@@ -84,6 +84,8 @@ class PublicationService:
         if not photo:
             raise NoPhotosAvailableError("Failed to select random photo from collection")
 
+        photo_media = await self.photo_service.ensure_photo_file(photo)
+
         bot_username = await self.get_bot_username()
         public_caption = generate_public_caption(
             original_text=original_text,
@@ -101,7 +103,7 @@ class PublicationService:
             stop_loss=parsed.stop_loss,
             target=parsed.target,
             public_caption=public_caption,
-            photo_file_id=photo.file_id,
+            photo_file_id=photo_media,
             created_at=utc_now(),
         )
 
