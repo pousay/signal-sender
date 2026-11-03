@@ -40,7 +40,7 @@ class Messages:
     PROMPT_SIGNAL_TEXT = "لطفاً متن سیگنال را ارسال یا پیست نمایید:\n\n"
     SIGNAL_PARSE_ERROR = (
         "❌ خطا در پردازش سیگنال!\n"
-        "مقدار «Sell limit» در متن ارسالی یافت نشد یا مقدار آن نامعتبر است.\n"
+        "نقطه ورود معتبر (Buy limit, Sell limit, Buy stop, Sell stop, Buy, Sell) یافت نشد.\n"
         "لطفاً متن سیگنال را اصلاح نموده و مجدداً ارسال کنید."
     )
     CAPTION_TOO_LONG = (

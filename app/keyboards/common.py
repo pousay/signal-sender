@@ -10,7 +10,7 @@ def get_support_keyboard(support_username: str) -> InlineKeyboardMarkup:
         [
             [
                 InlineKeyboardButton(
-                    f"ارتباط با پشتیبانی (@{clean_username})",
+                    "💬 ارتباط با پشتیبانی",
                     url=f"https://t.me/{clean_username}",
                 )
             ]

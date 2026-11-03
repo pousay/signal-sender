@@ -6,10 +6,9 @@ from app.utils.messages import Messages
 
 
 def get_admin_main_menu() -> InlineKeyboardMarkup:
-    """Generate the main admin menu strictly containing the 3 required inline buttons."""
+    """Generate the main admin menu."""
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(Messages.BTN_POST_SIGNAL, callback_data="admin:post_signal")],
             [InlineKeyboardButton(Messages.BTN_UPDATE_PHOTOS, callback_data="admin:update_photos")],
             [InlineKeyboardButton(Messages.BTN_SEND_PREMIUM, callback_data="admin:send_premium")],
         ]

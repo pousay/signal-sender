@@ -6,11 +6,11 @@ from dataclasses import dataclass
 MAX_CAPTION_LENGTH = 1024
 
 ORDER_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(buy\s*limit|sell\s*limit|buy|sell)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
+    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(buy\s*limit|sell\s*limit|buy\s*stop|sell\s*stop|buy|sell)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
     re.MULTILINE,
 )
 STOP_LOSS_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
+    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\([^)]+\))?)",
     re.MULTILINE,
 )
 TARGET_REGEX = re.compile(
@@ -18,7 +18,7 @@ TARGET_REGEX = re.compile(
     re.MULTILINE,
 )
 STOP_LOSS_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?)",
+    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\([^)]+\))?)",
     re.MULTILINE,
 )
 
@@ -41,7 +41,7 @@ class ParsedSignal:
 
     order_type: str
     entry_price: str
-    stop_loss: str
+    stop_loss: str | None = None
     target: str | None = None
     stop_loss_match_span: tuple[int, int] | None = None
 
@@ -52,20 +52,20 @@ class ParsedSignal:
 
 
 def parse_signal_text(text: str) -> ParsedSignal:
-    """Extract Buy/Sell order and required Stop loss (and optional Target) values.
+    """Extract Buy/Sell order and optional Stop loss (and Target) values.
 
     Raises:
-        SignalParseError: if Order or Stop loss field is missing, invalid, or ambiguous.
+        SignalParseError: if Order field is missing, invalid, or ambiguous.
     """
     if not text or not text.strip():
         raise SignalParseError("Signal text is empty")
 
     norm_text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-    # 1. Order (Buy limit, Sell limit, Buy, Sell)
+    # 1. Order (Buy stop, Buy limit, Sell stop, Sell limit, Buy, Sell)
     order_matches = list(ORDER_REGEX.finditer(norm_text))
     if not order_matches:
-        raise SignalParseError("No valid 'Buy limit' or 'Sell limit' found in signal text")
+        raise SignalParseError("No valid order found in signal text")
 
     if len(order_matches) > 1:
         values = {m.group(2).replace(",", ".") for m in order_matches}
@@ -75,25 +75,45 @@ def parse_signal_text(text: str) -> ParsedSignal:
             )
 
     primary_order = order_matches[0]
-    raw_kw = primary_order.group(1).lower()
-    order_type = "Buy limit" if "buy" in raw_kw else "Sell limit"
+    raw_kw = re.sub(r"\s+", " ", primary_order.group(1).strip().lower())
+    if "buy" in raw_kw:
+        if "stop" in raw_kw:
+            order_type = "Buy stop"
+        elif "limit" in raw_kw:
+            order_type = "Buy limit"
+        else:
+            order_type = "Buy"
+    else:
+        if "stop" in raw_kw:
+            order_type = "Sell stop"
+        elif "limit" in raw_kw:
+            order_type = "Sell limit"
+        else:
+            order_type = "Sell"
+
     entry_price = primary_order.group(2).replace(",", ".")
 
-    # 2. Stop loss (required to hide behind deep link)
+    # 2. Stop loss (optional; can be numeric or existing 'مشاهده')
     sl_matches = list(STOP_LOSS_REGEX.finditer(norm_text))
-    if not sl_matches:
-        raise SignalParseError("No valid 'Stop loss' found in signal text")
+    sl_val: str | None = None
+    sl_span: tuple[int, int] | None = None
 
-    if len(sl_matches) > 1:
-        sl_values = {m.group(1).replace(",", ".") for m in sl_matches}
-        if len(sl_values) > 1:
+    if sl_matches:
+        numeric_sl_values = {
+            m.group(1).replace(",", ".")
+            for m in sl_matches
+            if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", m.group(1).replace(",", "."))
+        }
+        if len(numeric_sl_values) > 1:
             raise SignalParseError(
                 "Ambiguous signal text containing multiple distinct 'Stop loss' values"
             )
 
-    primary_sl = sl_matches[0]
-    sl_val = primary_sl.group(1).replace(",", ".")
-    sl_span = primary_sl.span(1)
+        primary_sl = sl_matches[0]
+        raw_sl = primary_sl.group(1).replace(",", ".")
+        if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", raw_sl):
+            sl_val = raw_sl
+        sl_span = primary_sl.span(1)
 
     # 3. Target (optional)
     tp_match = TARGET_REGEX.search(norm_text)
@@ -114,7 +134,7 @@ def generate_public_caption(
     bot_username: str,
     signal_id: int,
 ) -> str:
-    """Generate public channel caption by replacing ONLY the Stop loss numeric value.
+    """Generate public channel caption by replacing Stop loss value with deep link.
 
     Replaces the Stop loss value with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
     while preserving the entry order, surrounding text, emojis, and hashtags.
@@ -133,7 +153,7 @@ def generate_public_caption(
         return f"{prefix}{view_link}"
 
     caption, count = STOP_LOSS_REPLACE_REGEX.subn(_replace_sl, norm_text, count=1)
-    if count == 0:
+    if count == 0 and parsed.stop_loss is not None:
         raise SignalParseError("Failed to locate Stop loss value in signal text for replacement")
 
     if len(caption) > MAX_CAPTION_LENGTH:

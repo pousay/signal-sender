@@ -56,7 +56,7 @@ def test_parse_case_insensitivity_and_shorthand():
     # lowercase buy and shorthand sl/tp
     raw_shorthand_buy = "buy: 1200\nsl: 1150\ntp: 1300"
     parsed_shorthand_buy = parse_signal_text(raw_shorthand_buy)
-    assert parsed_shorthand_buy.order_type == "Buy limit"
+    assert parsed_shorthand_buy.order_type == "Buy"
     assert parsed_shorthand_buy.entry_price == "1200"
     assert parsed_shorthand_buy.stop_loss == "1150"
     assert parsed_shorthand_buy.target == "1300"
@@ -74,14 +74,82 @@ def test_parse_missing_order():
     raw = "Stop loss: 49000\nTarget: 51000"
     with pytest.raises(SignalParseError) as exc:
         parse_signal_text(raw)
-    assert "No valid 'Buy limit' or 'Sell limit' found" in str(exc.value)
+    assert "No valid order found" in str(exc.value)
 
 
-def test_parse_missing_stop_loss():
+def test_parse_optional_stop_loss():
     raw = "Buy limit: 50000\nTarget: 51000"
-    with pytest.raises(SignalParseError) as exc:
-        parse_signal_text(raw)
-    assert "No valid 'Stop loss' found" in str(exc.value)
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "50000"
+    assert parsed.stop_loss is None
+    assert parsed.target == "51000"
+
+
+def test_parse_all_six_order_types():
+    cases = [
+        ("Buy stop: 100\nSL: 90", "Buy stop", "100"),
+        ("Buy limit: 100\nSL: 90", "Buy limit", "100"),
+        ("Sell stop: 100\nSL: 110", "Sell stop", "100"),
+        ("Sell limit: 100\nSL: 110", "Sell limit", "100"),
+        ("Buy: 100\nSL: 90", "Buy", "100"),
+        ("Sell: 100\nSL: 110", "Sell", "100"),
+    ]
+    for text, expected_type, expected_price in cases:
+        parsed = parse_signal_text(text)
+        assert parsed.order_type == expected_type
+        assert parsed.entry_price == expected_price
+
+
+def test_parse_mosen_sample_with_view_stop_loss():
+    raw = (
+        "فروش دلار/فرانک سوئیس | USD/CHF\n\n"
+        "🔹 Sell limit : 0.82030\n"
+        "🔹 Stop loss: مشاهده\n"
+        "🔹 Target: 0.81470 (56 pip)\n"
+        "⚖️ Risk/Reward: بین 1 الی 2\n"
+        "⏰ M15.H1\n"
+        "📊Price Now ~ 0.8185\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "🔍 دلیل ورود :\n"
+        "فرانک سوئیس قوی‌ترین ارز بازار امروز است\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Sell limit"
+    assert parsed.entry_price == "0.82030"
+    assert parsed.stop_loss is None
+    assert parsed.target == "0.81470"
+
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_RoBot",
+        signal_id=42,
+    )
+    assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=42)" in caption
+    assert "🔹 Sell limit : 0.82030" in caption
+
+
+def test_parse_forwarded_post_with_existing_markdown_link():
+    raw = (
+        "فروش دلار/فرانک سوئیس | USD/CHF\n\n"
+        "🔹 Sell limit : 0.82030\n"
+        "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=10)\n"
+        "🔹 Target: 0.81470 (56 pip)\n"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Sell limit"
+    assert parsed.entry_price == "0.82030"
+    assert parsed.stop_loss is None
+
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_RoBot",
+        signal_id=99,
+    )
+    assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=99)" in caption
 
 
 def test_parse_ambiguous_multiple_orders():

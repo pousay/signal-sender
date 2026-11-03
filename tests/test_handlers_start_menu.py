@@ -83,7 +83,7 @@ async def test_admin_start_routing(
 
     msg.reply_text.assert_called_once()
     assert msg.reply_text.call_args[1]["text"] == Messages.ADMIN_WELCOME
-    assert len(msg.reply_text.call_args[1]["reply_markup"].inline_keyboard) == 3
+    assert len(msg.reply_text.call_args[1]["reply_markup"].inline_keyboard) == 2
 
     state = await state_manager.get_state(100)
     assert state.step == AdminStep.IDLE
