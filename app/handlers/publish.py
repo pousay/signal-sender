@@ -41,7 +41,8 @@ def register_publish_handlers(
         user_id = message.from_user.id
         state = await state_manager.get_state(user_id)
 
-        if state.step != AdminStep.AWAITING_SIGNAL_TEXT:
+        # Do not intercept subscription wizard steps
+        if state.step in (AdminStep.AWAITING_USER_ID, AdminStep.AWAITING_DURATION_DAYS):
             raise ContinuePropagation
 
         signal_text = (message.text or "").replace("\r\n", "\n").replace("\r", "\n")
