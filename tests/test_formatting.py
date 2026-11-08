@@ -8,6 +8,7 @@ from app.utils.formatting import (
     format_premium_signal_details,
     generate_public_caption,
     parse_signal_text,
+    to_persian_numbers,
 )
 
 
@@ -574,3 +575,119 @@ def test_format_premium_signal_details_copiable_mono_and_value():
         "🗻 value: `0.17`لات"
     )
     assert details == expected
+
+
+def test_footer_standardization_replaces_single_channel_handle():
+    raw = (
+        "🔴 سیگنال فروش انس طلا\n"
+        "🔹 Sell limit: 2650.50\n"
+        "🔹 Stop loss: 2660.00\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=10,
+    )
+    assert caption.endswith("🆔 @app_farex\n👤 @orginal")
+
+
+def test_footer_standardization_replaces_reversed_or_partial_handles():
+    raw = (
+        "🔵 سیگنال خرید جفت ارز\n"
+        "🔹 Buy limit: 1.0850\n"
+        "🔹 Stop loss: 1.0800\n"
+        "👤 @orginal\n"
+        "🆔 @app_Farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=11,
+    )
+    assert caption.endswith("🆔 @app_farex\n👤 @orginal")
+
+
+def test_static_risk_reward_defaults_to_persian_phrase():
+    raw = (
+        "🔵 سیگنال خرید طلا\n"
+        "🔵 Buy limit: 2640.00\n"
+        "⚫️ Stop loss: 2630.00\n"
+        "🟢 Target: 2660.00\n"
+        "⚖️ Risk/Riward : 1.30\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=12,
+        risk_reward=None,
+    )
+    assert "⚖️ Risk/Reward : بین 1 الی 2" in caption
+
+
+def test_to_persian_numbers_conversion():
+    assert to_persian_numbers("14050725") == "۱۴۰۵۰۷۲۵"
+    assert to_persian_numbers("140508171") == "۱۴۰۵۰۸۱۷۱"
+    assert to_persian_numbers("0123456789") == "۰۱۲۳۴۵۶۷۸۹"
+
+
+def test_persian_code_in_caption_preserves_latin_signal_numbers():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target 1: 0.81900\n"
+        "⚖️ Risk/Riward : 1.30\n"
+        "📊 Price Now ~ 0.81440\n"
+        "#دلار_فرانک #سیگنال_معاملاتی\n"
+        "کد : 14050725\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=15,
+        daily_code="140508175",
+    )
+    # Daily code rendered with Persian digits
+    assert "کد : ۱۴۰۵۰۸۱۷۵" in caption
+    assert "14050725" not in caption
+    assert "140508175" not in caption
+    # Prices and parameters remain Latin digits
+    assert "0.81630" in caption
+    assert "0.81440" in caption
+    # Footer standardized
+    assert caption.endswith("🆔 @app_farex\n👤 @orginal")
+    # Static RR applied
+    assert "⚖️ Risk/Reward : بین 1 الی 2" in caption
+
+
+def test_persian_code_conversion_when_daily_code_not_passed():
+    raw = (
+        "🔵 سیگنال خرید یورو | EUR/USD\n"
+        "🔵 Buy limit: 1.0850\n"
+        "⚫️ Stop loss: 1.0800\n"
+        "کد : 14050725\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=16,
+        daily_code=None,
+    )
+    assert "کد : ۱۴۰۵۰۷۲۵" in caption
+    assert "14050725" not in caption
+    assert "1.0850" in caption
+
