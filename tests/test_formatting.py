@@ -394,6 +394,62 @@ def test_generate_public_caption_price_now_timestamp_link():
     assert "📊 [Price Now](tg://time?unix=1762621772) ~ 0.81440" in caption
 
 
+def test_generate_public_caption_replaces_existing_daily_code():
+    raw = (
+        "🔵 سیگنال خرید طلا\n"
+        "🔵 Buy limit: 2000\n"
+        "⚫️ Stop loss: 1990\n"
+        "کد : 14050725\n"
+        "🆔 @app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=1,
+        daily_code="140508171",
+    )
+    assert "کد : 140508171" in caption
+    assert "14050725" not in caption
+
+
+def test_generate_public_caption_inserts_daily_code_before_footer():
+    raw = (
+        "🔵 سیگنال خرید طلا\n"
+        "🔵 Buy limit: 2000\n"
+        "⚫️ Stop loss: 1990\n"
+        "#طلا\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=1,
+        daily_code="140508172",
+    )
+    assert "کد : 140508172\n@app_farex" in caption
+
+
+def test_generate_public_caption_appends_daily_code_when_no_footer():
+    raw = (
+        "🔵 سیگنال خرید طلا\n"
+        "🔵 Buy limit: 2000\n"
+        "⚫️ Stop loss: 1990\n"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=1,
+        daily_code="140508173",
+    )
+    assert caption.endswith("کد : 140508173\n")
+
+
 def test_generate_public_caption_too_long():
     long_text = "Sell limit: 100\nStop loss: 110\n" + ("A" * 1020)
     parsed = parse_signal_text(long_text)
