@@ -75,10 +75,35 @@ async def test_create_draft_success(
     assert draft.sell_limit == "50000"
     assert draft.photo_file_id == "photo_123"
     assert "[مشاهده](https://t.me/my_test_bot?start=1)" in draft.public_caption
+    assert draft.daily_code is not None
+    assert f"کد : {draft.daily_code}" in draft.public_caption
 
     # Check stored in signals container
     col = await test_storage.signals.load()
     assert col.get_draft(draft.draft_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_create_multiple_drafts_increments_daily_code(
+    test_settings: Settings, test_storage: StorageManager, seeded_photo_service: PhotoService
+):
+    """Verify sequential drafts increment the daily code counter."""
+    mock_client = MagicMock(spec=Client)
+    pub_service = PublicationService(
+        mock_client, test_settings, test_storage, seeded_photo_service
+    )
+
+    draft1, _ = await pub_service.create_draft(
+        admin_id=100, original_text="Sell limit: 100\nSL: 105"
+    )
+    draft2, _ = await pub_service.create_draft(
+        admin_id=100, original_text="Buy limit: 200\nSL: 195"
+    )
+
+    assert draft1.daily_code is not None
+    assert draft2.daily_code is not None
+    assert draft1.daily_code[:-1] == draft2.daily_code[:-1]  # Same YYYYMMDD date prefix
+    assert int(draft2.daily_code[-1]) == int(draft1.daily_code[-1]) + 1
 
 
 @pytest.mark.asyncio
