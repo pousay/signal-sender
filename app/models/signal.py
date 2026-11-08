@@ -41,6 +41,7 @@ class SignalRecord(BaseModel):
     daily_code: str | None = Field(
         default=None, description="Daily tracking code (e.g. 140508171)"
     )
+    value: str | None = Field(default=None, description="Trade lot value/volume")
     public_caption: str = Field(..., description="Generated public caption with deep link")
     photo_file_id: str = Field(..., description="Telegram photo file_id used for publication")
     channel_id: int | str = Field(..., description="Target channel identifier")
@@ -85,6 +86,7 @@ class SignalDraft(BaseModel):
     daily_code: str | None = Field(
         default=None, description="Daily tracking code (e.g. 140508171)"
     )
+    value: str | None = Field(default=None, description="Trade lot value/volume")
     public_caption: str = Field(..., description="Prepared public caption")
     photo_file_id: str = Field(..., description="Selected photo file_id or local path")
     source_message_id: int | None = Field(
