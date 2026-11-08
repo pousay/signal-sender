@@ -152,6 +152,33 @@ def test_parse_forwarded_post_with_existing_markdown_link():
     assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=99)" in caption
 
 
+def test_parse_and_caption_multiple_targets():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢Target 1: 0.81900\n"
+        "🟢Target 2: 0.82200\n"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "0.81630"
+    assert parsed.stop_loss == "0.81200"
+    assert len(parsed.targets) == 2
+    assert parsed.targets[0] == ("Target 1", "0.81900")
+    assert parsed.targets[1] == ("Target 2", "0.82200")
+
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+    )
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢Target 1: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢Target 2: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+
+
 def test_parse_ambiguous_multiple_orders():
     raw = "Sell limit: 1000\nBuy limit: 2000\nStop loss: 900"
     with pytest.raises(SignalParseError) as exc:
@@ -188,7 +215,7 @@ def test_generate_public_caption_hides_stop_loss_and_keeps_order_price():
         "🔴 سیگنال فروش طلا #XAUUSD\n"
         "🔹 Sell limit: 77950\n"
         "🔹 Stop loss: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
-        "🔹 Target: 76900\n"
+        "🔹 Target: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
         "موفق باشید 🌹"
     )
     assert caption == expected
@@ -215,7 +242,7 @@ def test_generate_public_caption_buy_signal():
         "🟢 سیگنال خرید اتریوم | ETH/USDT\n\n"
         "🔹 Buy limit: 2230 \n"
         "🔹 Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
-        "🔹 Target: 2287 \n"
+        "🔹 Target: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
         "⚖️ RR: بزرگتر از یک\n"
         "⏰ M15.H1"
     )
@@ -231,7 +258,11 @@ def test_generate_public_caption_crlf_input():
         bot_username="test_bot",
         signal_id=10,
     )
-    expected = "Sell limit: 100\nStop loss: [مشاهده](https://t.me/test_bot?start=10)\nTarget: 90\n"
+    expected = (
+        "Sell limit: 100\n"
+        "Stop loss: [مشاهده](https://t.me/test_bot?start=10)\n"
+        "Target: [مشاهده](https://t.me/test_bot?start=10)\n"
+    )
     assert caption == expected
 
 
@@ -262,7 +293,7 @@ def test_generate_public_caption_user_sample_sell_bitcoin():
     )
     assert "🔹 Sell limit: 77950" in caption
     assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
-    assert "🔹 Target: 76900" in caption
+    assert "🔹 Target: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
     assert "قیمت در حال اصلاح صعودی به سمت محدوده مقاومتی 77950 است" in caption
 
 
@@ -287,7 +318,7 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_sell
-        == "🔹 Sell limit: 77950\n🔹 Stop loss: 78650\n🔹 Target: 76900"
+        == "🔴 Sell limit: 77950\n⚫️ Stop loss: 78650\n🟢 Target: 76900"
     )
 
     formatted_buy = format_premium_signal_details(
@@ -298,7 +329,20 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_buy
-        == "🔹 Buy limit: 2230\n🔹 Stop loss: 2198\n🔹 Target: 2287"
+        == "🔵 Buy limit: 2230\n⚫️ Stop loss: 2198\n🟢 Target: 2287"
+    )
+
+    formatted_multiple_targets = format_premium_signal_details(
+        order_type="Buy limit",
+        entry_price="0.81630",
+        stop_loss="0.81200",
+        targets=[("Target 1", "0.81900"), ("Target 2", "0.82200")],
+    )
+    assert formatted_multiple_targets == (
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target 1: 0.81900\n"
+        "🟢 Target 2: 0.82200"
     )
 
     formatted_legacy = format_premium_signal_details(
@@ -308,5 +352,5 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_legacy
-        == "🔹 Sell limit: 77950\n🔹 Stop loss: 78650\n🔹 Target: 76900"
+        == "🔴 Sell limit: 77950\n⚫️ Stop loss: 78650\n🟢 Target: 76900"
     )

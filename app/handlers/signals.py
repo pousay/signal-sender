@@ -43,6 +43,7 @@ async def deliver_signal_details(
             entry_price=getattr(signal, "entry_price", signal.sell_limit),
             stop_loss=signal.stop_loss,
             target=signal.target,
+            targets=getattr(signal, "targets", None),
             sell_limit=signal.sell_limit,
         )
         if isinstance(reply_target, CallbackQuery):

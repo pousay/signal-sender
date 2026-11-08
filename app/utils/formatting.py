@@ -1,7 +1,7 @@
 """Signal parsing, entity preservation, and caption formatting."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 MAX_CAPTION_LENGTH = 1024
 
@@ -10,15 +10,19 @@ ORDER_REGEX = re.compile(
     re.MULTILINE,
 )
 STOP_LOSS_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\([^)]+\))?)",
+    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|⚫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
     re.MULTILINE,
 )
 TARGET_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:target|tp)(?:\s*[0-9]+)?\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
+    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*((?:target|tp)(?:\s*[0-9]+)?)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
     re.MULTILINE,
 )
 STOP_LOSS_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\([^)]+\))?)",
+    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|⚫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
+    re.MULTILINE,
+)
+TARGET_REPLACE_REGEX = re.compile(
+    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:target|tp)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
     re.MULTILINE,
 )
 
@@ -43,6 +47,7 @@ class ParsedSignal:
     entry_price: str
     stop_loss: str | None = None
     target: str | None = None
+    targets: list[tuple[str, str | None]] = field(default_factory=list)
     stop_loss_match_span: tuple[int, int] | None = None
 
     @property
@@ -115,15 +120,28 @@ def parse_signal_text(text: str) -> ParsedSignal:
             sl_val = raw_sl
         sl_span = primary_sl.span(1)
 
-    # 3. Target (optional)
-    tp_match = TARGET_REGEX.search(norm_text)
-    tp_val = tp_match.group(1).replace(",", ".") if tp_match else None
+    # 3. Targets (optional; supports Target, Target 1, Target 2, TP, etc.)
+    target_matches = list(TARGET_REGEX.finditer(norm_text))
+    parsed_targets: list[tuple[str, str | None]] = []
+    primary_tp: str | None = None
+
+    for m in target_matches:
+        lbl = re.sub(r"\s+", " ", m.group(1).strip())
+        raw_val = m.group(2).replace(",", ".")
+        val = raw_val if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", raw_val) else None
+        parsed_targets.append((lbl, val))
+        if primary_tp is None and val is not None:
+            primary_tp = val
+
+    if not primary_tp and parsed_targets:
+        primary_tp = parsed_targets[0][1]
 
     return ParsedSignal(
         order_type=order_type,
         entry_price=entry_price,
         stop_loss=sl_val,
-        target=tp_val,
+        target=primary_tp,
+        targets=parsed_targets,
         stop_loss_match_span=sl_span,
     )
 
@@ -134,9 +152,9 @@ def generate_public_caption(
     bot_username: str,
     signal_id: int,
 ) -> str:
-    """Generate public channel caption by replacing Stop loss value with deep link.
+    """Generate public channel caption by replacing Stop loss & Target values with deep link.
 
-    Replaces the Stop loss value with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
+    Replaces Stop loss and Target values with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
     while preserving the entry order, surrounding text, emojis, and hashtags.
 
     Raises:
@@ -156,6 +174,12 @@ def generate_public_caption(
     if count == 0 and parsed.stop_loss is not None:
         raise SignalParseError("Failed to locate Stop loss value in signal text for replacement")
 
+    def _replace_target(match: re.Match) -> str:
+        prefix = match.group(1)
+        return f"{prefix}{view_link}"
+
+    caption = TARGET_REPLACE_REGEX.sub(_replace_target, caption)
+
     if len(caption) > MAX_CAPTION_LENGTH:
         raise CaptionTooLongError(
             f"Caption length {len(caption)} exceeds Telegram limit of {MAX_CAPTION_LENGTH}"
@@ -169,6 +193,7 @@ def format_premium_signal_details(
     entry_price: str | None = None,
     stop_loss: str | None = None,
     target: str | None = None,
+    targets: list[tuple[str, str | None]] | None = None,
     sell_limit: str | None = None,
 ) -> str:
     """Format full real signal parameters for active premium members."""
@@ -180,9 +205,20 @@ def format_premium_signal_details(
     lines = []
     if entry_price:
         clean_label = order_type.strip(": ")
-        lines.append(f"🔹 {clean_label}: {entry_price}")
+        is_buy = "buy" in clean_label.lower()
+        order_emoji = "🔵" if is_buy else "🔴"
+        lines.append(f"{order_emoji} {clean_label}: {entry_price}")
     if stop_loss:
-        lines.append(f"🔹 Stop loss: {stop_loss}")
-    if target:
-        lines.append(f"🔹 Target: {target}")
+        lines.append(f"⚫️ Stop loss: {stop_loss}")
+
+    if targets:
+        valid_targets = [(lbl, val) for lbl, val in targets if val]
+        if valid_targets:
+            for lbl, val in valid_targets:
+                lines.append(f"🟢 {lbl}: {val}")
+        elif target:
+            lines.append(f"🟢 Target: {target}")
+    elif target:
+        lines.append(f"🟢 Target: {target}")
+
     return "\n".join(lines)
