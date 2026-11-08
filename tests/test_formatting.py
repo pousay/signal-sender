@@ -410,7 +410,7 @@ def test_generate_public_caption_replaces_existing_daily_code():
         signal_id=1,
         daily_code="140508171",
     )
-    assert "کد : 140508171" in caption
+    assert "کد : ۱۴۰۵۰۸۱۷۱" in caption
     assert "14050725" not in caption
 
 
@@ -430,7 +430,7 @@ def test_generate_public_caption_inserts_daily_code_before_footer():
         signal_id=1,
         daily_code="140508172",
     )
-    assert "کد : 140508172\n🆔 @app_farex\n👤 @orginal" in caption
+    assert "کد : ۱۴۰۵۰۸۱۷۲\n🆔 @app_farex\n👤 @orginal" in caption
 
 
 def test_generate_public_caption_appends_daily_code_when_no_footer():
@@ -447,7 +447,7 @@ def test_generate_public_caption_appends_daily_code_when_no_footer():
         signal_id=1,
         daily_code="140508173",
     )
-    assert caption.endswith("کد : 140508173\n")
+    assert caption.endswith("کد : ۱۴۰۵۰۸۱۷۳\n")
 
 
 def test_generate_public_caption_too_long():
