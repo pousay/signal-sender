@@ -430,7 +430,7 @@ def test_generate_public_caption_inserts_daily_code_before_footer():
         signal_id=1,
         daily_code="140508172",
     )
-    assert "کد : 140508172\n@app_farex" in caption
+    assert "کد : 140508172\n🆔 @app_farex\n👤 @orginal" in caption
 
 
 def test_generate_public_caption_appends_daily_code_when_no_footer():
