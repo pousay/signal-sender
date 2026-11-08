@@ -227,3 +227,71 @@ async def test_deep_link_premium_user_receives_copiable_value(
     assert "🟢 Target 1: `94646`" in reply
     assert "🟢 Target 2: `31551`" in reply
     assert "🗻 value: `0.17`لات" in reply
+
+
+@pytest.mark.asyncio
+async def test_deep_link_premium_user_receives_details_with_fallback_reparsing(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify fallback reparsing guarantees full parameters when signal had None in fields."""
+    mock_app = MagicMock(spec=Client)
+    captured_handler = None
+
+    def capture_on_message(*args, **kwargs):
+        def decorator(f):
+            nonlocal captured_handler
+            captured_handler = f
+            return f
+
+        return decorator
+
+    mock_app.on_message = capture_on_message
+
+    # Seed signal #99 with None in stop_loss and targets, but valid original_text
+    record = SignalRecord(
+        id=99,
+        original_text=(
+            "🔵 Buy limit: 0.81630\n"
+            "⚫️ Stop loss: 0.81200\n"
+            "🟢 Target 1: 0.81900\n"
+            "🟢 Target 2: 0.82200"
+        ),
+        sell_limit="0.81630",
+        order_type="Buy limit",
+        entry_price="0.81630",
+        stop_loss=None,  # Old or missing field
+        target=None,
+        targets=[],
+        public_caption="caption",
+        photo_file_id="photo",
+        channel_id=test_settings.CHANNEL_ID,
+        published_message_id=999,
+        status=SignalStatus.PUBLISHED,
+    )
+
+    def _seed(col):
+        col.add_signal(record)
+
+    await test_storage.signals.mutate(_seed, make_backup=False)
+
+    sub_service = SubscriptionService(mock_app, test_settings, test_storage)
+    await sub_service.set_subscription(user_id=777, duration_days=30)
+    register_signal_handlers(mock_app, test_settings, test_storage, sub_service)
+
+    msg = MagicMock(spec=Message)
+    msg.text = "/start 99"
+    msg.from_user = MagicMock(spec=User)
+    msg.from_user.id = 777
+    msg.chat = MagicMock()
+    msg.chat.type = ChatType.PRIVATE
+    msg.reply_text = AsyncMock()
+
+    await captured_handler(mock_app, msg)
+
+    msg.reply_text.assert_called_once()
+    reply = msg.reply_text.call_args[0][0]
+    assert "🔵 Buy limit: `0.81630`" in reply
+    assert "⚫️ Stop loss: `0.81200`" in reply
+    assert "🟢 Target 1: `0.81900`" in reply
+    assert "🟢 Target 2: `0.82200`" in reply
+
