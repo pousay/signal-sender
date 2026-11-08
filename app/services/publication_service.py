@@ -71,12 +71,14 @@ class PublicationService:
 
         parsed = parse_signal_text(original_text)
 
-        # Allocate unique incremental signal ID
+        # Allocate unique incremental signal ID and daily tracking code
         signal_id: int = 0
+        daily_code: str = ""
 
         def _alloc(meta):
-            nonlocal signal_id
+            nonlocal signal_id, daily_code
             signal_id = meta.allocate_signal_id()
+            daily_code = meta.allocate_daily_signal_code()
 
         await self.storage.metadata.mutate(_alloc, make_backup=False)
 
@@ -92,6 +94,7 @@ class PublicationService:
             parsed=parsed,
             bot_username=bot_username,
             signal_id=signal_id,
+            daily_code=daily_code,
         )
 
         draft_id = f"draft_{signal_id}_{uuid.uuid4().hex[:8]}"
@@ -105,6 +108,7 @@ class PublicationService:
             stop_loss=parsed.stop_loss,
             target=parsed.target,
             targets=parsed.targets,
+            daily_code=daily_code,
             public_caption=public_caption,
             photo_file_id=photo_media,
             source_message_id=photo.message_id,
@@ -193,6 +197,7 @@ class PublicationService:
             stop_loss=draft.stop_loss,
             target=draft.target,
             targets=getattr(draft, "targets", []),
+            daily_code=getattr(draft, "daily_code", None),
             public_caption=draft.public_caption,
             photo_file_id=draft.photo_file_id,
             channel_id=self.settings.CHANNEL_ID,
