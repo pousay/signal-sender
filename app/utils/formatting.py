@@ -41,6 +41,7 @@ FOOTER_HANDLE_REGEX = re.compile(
 )
 STANDARDIZED_FOOTER = "🆔 @app_farex\n👤 @orginal"
 DEFAULT_RISK_REWARD = "بین 1 الی 2"
+PERSIAN_DIGITS_TABLE = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 VALUE_REGEX = re.compile(
     r"(?i)(?:^|[\n\r\s])(?:🗻|🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*value\s*[:=\-]?\s*([^\n\r]+)",
     re.MULTILINE,
@@ -61,6 +62,11 @@ class SignalParseError(FormattingError):
 
 class CaptionTooLongError(FormattingError):
     """Raised when the generated public caption exceeds Telegram limit."""
+
+
+def to_persian_numbers(text: str) -> str:
+    """Convert Latin digits (0-9) to Persian digits (۰-۹)."""
+    return text.translate(PERSIAN_DIGITS_TABLE)
 
 
 @dataclass
@@ -288,7 +294,7 @@ def generate_public_caption(
 
     # Set or inject daily tracking code if provided
     if daily_code:
-        code_line = f"کد : {daily_code}"
+        code_line = f"کد : {to_persian_numbers(daily_code)}"
         if CODE_LINE_REGEX.search(caption):
             caption = CODE_LINE_REGEX.sub(code_line, caption, count=1)
         elif FOOTER_INSERT_REGEX.search(caption):
@@ -298,6 +304,10 @@ def generate_public_caption(
             caption = f"{caption[:idx]}{code_line}\n{caption[idx:]}"
         else:
             caption = f"{caption.rstrip()}\n{code_line}\n"
+    elif CODE_LINE_REGEX.search(caption):
+        caption = CODE_LINE_REGEX.sub(
+            lambda m: to_persian_numbers(m.group(0)), caption, count=1
+        )
 
     if len(caption) > MAX_CAPTION_LENGTH:
         raise CaptionTooLongError(

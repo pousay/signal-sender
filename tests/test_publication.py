@@ -20,6 +20,7 @@ from app.services.publication_service import (
     PublicationService,
 )
 from app.storage.repositories import StorageManager
+from app.utils.formatting import to_persian_numbers
 from app.utils.messages import Messages
 
 
@@ -76,7 +77,7 @@ async def test_create_draft_success(
     assert draft.photo_file_id == "photo_123"
     assert "[مشاهده](https://t.me/my_test_bot?start=1)" in draft.public_caption
     assert draft.daily_code is not None
-    assert f"کد : {draft.daily_code}" in draft.public_caption
+    assert f"کد : {to_persian_numbers(draft.daily_code)}" in draft.public_caption
 
     # Check stored in signals container
     col = await test_storage.signals.load()
