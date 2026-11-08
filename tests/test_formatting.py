@@ -509,3 +509,68 @@ def test_format_premium_signal_details():
         formatted_legacy
         == "🔴 Sell limit: `77950`\n⚫️ Stop loss: `78650`\n🟢 Target: `76900`"
     )
+
+
+def test_parse_signal_text_with_value_field():
+    raw_with_emoji = (
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target: 0.82000\n"
+        "🗻 value: 0.17لات\n"
+    )
+    parsed = parse_signal_text(raw_with_emoji)
+    assert parsed.value == "0.17لات"
+
+    raw_without_emoji = (
+        "Sell limit: 1.2345\n"
+        "SL: 1.2400\n"
+        "TP: 1.2200\n"
+        "value: 0.50\n"
+    )
+    parsed_plain = parse_signal_text(raw_without_emoji)
+    assert parsed_plain.value == "0.50"
+
+
+def test_generate_public_caption_strips_value_line():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target 1: 0.81900\n"
+        "🟢 Target 2: 0.82200\n"
+        "⚖️ Risk/Riward : 1.30\n"
+        "🗻 value: 0.17لات\n"
+        "⏰ M15.H1\n"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+        risk_reward="1.30",
+    )
+    assert "value" not in caption
+    assert "0.17لات" not in caption
+    assert "🗻" not in caption
+    assert "🔵 Buy limit: 0.81630" in caption
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "⏰ M15.H1" in caption
+
+
+def test_format_premium_signal_details_copiable_mono_and_value():
+    details = format_premium_signal_details(
+        order_type="Buy limit",
+        entry_price="0.81630",
+        stop_loss="94646",
+        targets=[("Target 1", "94646"), ("Target 2", "31551")],
+        value="0.17لات",
+    )
+    expected = (
+        "🔵 Buy limit: `0.81630`\n"
+        "⚫️ Stop loss: `94646`\n"
+        "🟢 Target 1: `94646`\n"
+        "🟢 Target 2: `31551`\n"
+        "🗻 value: `0.17`لات"
+    )
+    assert details == expected
