@@ -321,10 +321,10 @@ def test_full_signal_format_v2_end_to_end():
         stop_loss=parsed.stop_loss,
         targets=parsed.targets,
     )
-    assert "🔵 Buy limit: 0.81630" in premium_details
-    assert "⚫️ Stop loss: 0.81200" in premium_details
-    assert "🟢 Target 1: 0.81900" in premium_details
-    assert "🟢 Target 2: 0.82200" in premium_details
+    assert "🔵 Buy limit: `0.81630`" in premium_details
+    assert "⚫️ Stop loss: `0.81200`" in premium_details
+    assert "🟢 Target 1: `0.81900`" in premium_details
+    assert "🟢 Target 2: `0.82200`" in premium_details
 
 
 def test_generate_public_caption_crlf_input():
@@ -471,7 +471,7 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_sell
-        == "🔴 Sell limit: 77950\n⚫️ Stop loss: 78650\n🟢 Target: 76900"
+        == "🔴 Sell limit: `77950`\n⚫️ Stop loss: `78650`\n🟢 Target: `76900`"
     )
 
     formatted_buy = format_premium_signal_details(
@@ -482,7 +482,7 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_buy
-        == "🔵 Buy limit: 2230\n⚫️ Stop loss: 2198\n🟢 Target: 2287"
+        == "🔵 Buy limit: `2230`\n⚫️ Stop loss: `2198`\n🟢 Target: `2287`"
     )
 
     formatted_multiple_targets = format_premium_signal_details(
@@ -490,12 +490,14 @@ def test_format_premium_signal_details():
         entry_price="0.81630",
         stop_loss="0.81200",
         targets=[("Target 1", "0.81900"), ("Target 2", "0.82200")],
+        value="0.17لات",
     )
     assert formatted_multiple_targets == (
-        "🔵 Buy limit: 0.81630\n"
-        "⚫️ Stop loss: 0.81200\n"
-        "🟢 Target 1: 0.81900\n"
-        "🟢 Target 2: 0.82200"
+        "🔵 Buy limit: `0.81630`\n"
+        "⚫️ Stop loss: `0.81200`\n"
+        "🟢 Target 1: `0.81900`\n"
+        "🟢 Target 2: `0.82200`\n"
+        "🗻 value: `0.17`لات"
     )
 
     formatted_legacy = format_premium_signal_details(
@@ -505,5 +507,5 @@ def test_format_premium_signal_details():
     )
     assert (
         formatted_legacy
-        == "🔴 Sell limit: 77950\n⚫️ Stop loss: 78650\n🟢 Target: 76900"
+        == "🔴 Sell limit: `77950`\n⚫️ Stop loss: `78650`\n🟢 Target: `76900`"
     )
