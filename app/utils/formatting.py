@@ -34,6 +34,8 @@ RISK_REWARD_REGEX = re.compile(
     r"(?i)^[ \t]*(?:⚖️\s*)?(?:risk\s*[/:\s]*r[ie]ward|rr|risk\s*to\s*reward)\s*[:=\-]?\s*.+$",
     re.MULTILINE,
 )
+CODE_LINE_REGEX = re.compile(r"(?i)^[ \t]*کد\s*[:=\-]?\s*.*$", re.MULTILINE)
+FOOTER_INSERT_REGEX = re.compile(r"(?i)^[ \t]*(?:🆔|👤|@)", re.MULTILINE)
 
 
 class FormattingError(Exception):
@@ -217,13 +219,14 @@ def generate_public_caption(
     signal_id: int,
     timestamp: int | None = None,
     risk_reward: str | None = None,
+    daily_code: str | None = None,
 ) -> str:
     """Generate public channel caption by replacing Stop loss & Target values with deep link.
 
     Replaces Stop loss and Target values with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
     while preserving the entry order, surrounding text, emojis, and hashtags.
-    Also wraps 'Price Now' with an interactive Telegram date timestamp link
-    and standardizes the Risk/Reward line.
+    Also wraps 'Price Now' with an interactive Telegram date timestamp link,
+    standardizes the Risk/Reward line, and sets/injects the daily tracking code.
 
     Raises:
         CaptionTooLongError: if final caption exceeds 1024 characters.
@@ -256,6 +259,19 @@ def generate_public_caption(
     if RISK_REWARD_REGEX.search(caption):
         rr_str = risk_reward if risk_reward is not None else f"{random.uniform(1.20, 1.85):.2f}"
         caption = RISK_REWARD_REGEX.sub(f"⚖️ Risk/Reward : {rr_str}", caption, count=1)
+
+    # Set or inject daily tracking code if provided
+    if daily_code:
+        code_line = f"کد : {daily_code}"
+        if CODE_LINE_REGEX.search(caption):
+            caption = CODE_LINE_REGEX.sub(code_line, caption, count=1)
+        elif FOOTER_INSERT_REGEX.search(caption):
+            match = FOOTER_INSERT_REGEX.search(caption)
+            assert match is not None
+            idx = match.start()
+            caption = f"{caption[:idx]}{code_line}\n{caption[idx:]}"
+        else:
+            caption = f"{caption.rstrip()}\n{code_line}\n"
 
     if len(caption) > MAX_CAPTION_LENGTH:
         raise CaptionTooLongError(
