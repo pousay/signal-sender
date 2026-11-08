@@ -36,6 +36,11 @@ RISK_REWARD_REGEX = re.compile(
 )
 CODE_LINE_REGEX = re.compile(r"(?i)^[ \t]*کد\s*[:=\-]?\s*.*$", re.MULTILINE)
 FOOTER_INSERT_REGEX = re.compile(r"(?i)^[ \t]*(?:🆔|👤|@)", re.MULTILINE)
+FOOTER_HANDLE_REGEX = re.compile(
+    r"(?:^[ \t]*(?:(?:🆔\s*)?@app_farex|(?:👤\s*)?@orginal)[^\n\r]*(?:\r?\n)?)+",
+    re.MULTILINE | re.IGNORECASE,
+)
+STANDARDIZED_FOOTER = "🆔 @app_farex\n👤 @orginal"
 VALUE_REGEX = re.compile(
     r"(?i)(?:^|[\n\r\s])(?:🗻|🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*value\s*[:=\-]?\s*([^\n\r]+)",
     re.MULTILINE,
@@ -276,6 +281,10 @@ def generate_public_caption(
     if RISK_REWARD_REGEX.search(caption):
         rr_str = risk_reward if risk_reward is not None else f"{random.uniform(1.20, 1.85):.2f}"
         caption = RISK_REWARD_REGEX.sub(f"⚖️ Risk/Reward : {rr_str}", caption, count=1)
+
+    # Standardize footer handles if present
+    if FOOTER_HANDLE_REGEX.search(caption):
+        caption = FOOTER_HANDLE_REGEX.sub(STANDARDIZED_FOOTER, caption)
 
     # Set or inject daily tracking code if provided
     if daily_code:
