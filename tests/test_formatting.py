@@ -1,6 +1,8 @@
 """Tests for signal parsing and caption formatting."""
 
 import pytest
+from pyrogram.parser.html import HTML
+from pyrogram.raw.types import MessageEntityFormattedDate, MessageEntityTextUrl
 
 from app.utils.formatting import (
     CaptionTooLongError,
@@ -691,4 +693,105 @@ def test_persian_code_conversion_when_daily_code_not_passed():
     assert "کد : ۱۴۰۵۰۷۲۵" in caption
     assert "14050725" not in caption
     assert "1.0850" in caption
+
+
+@pytest.mark.asyncio
+async def test_html_parser_creates_formatted_date_and_web_links():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target 1: 0.81900\n"
+        "🟢 Target 2: 0.82200\n"
+        "⚖️ Risk/Riward : 1.30\n"
+        "⏰ M15.H1\n"
+        "📊 Price Now ~ 0.81440\n"
+        "کد : 14050725\n"
+        "@app_farex"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+        timestamp=1762621772,
+    )
+    parser = HTML(None)
+    parsed_msg = await parser.parse(caption)
+    entities = parsed_msg["entities"]
+    assert entities is not None
+
+    date_entities = [e for e in entities if isinstance(e, MessageEntityFormattedDate)]
+    assert len(date_entities) == 1
+    assert date_entities[0].date == 1762621772
+
+    url_entities = [e for e in entities if isinstance(e, MessageEntityTextUrl)]
+    assert len(url_entities) == 3
+    for u in url_entities:
+        assert u.url == "https://t.me/Farex_Robot?start=50"
+
+
+def test_parse_and_reveal_persian_aliases_and_custom_bullets():
+    raw = (
+        "🔵 سیگنال خرید انس طلا #GOLD\n\n"
+        "• Buy: 2650.50\n"
+        "🛑 حد ضرر: 2640.00\n"
+        "🎯 تارگت 1: 2670.00\n"
+        "🎯 هدف 2: 2690.00\n"
+        "🗻 value: 0.25لات\n"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy"
+    assert parsed.entry_price == "2650.50"
+    assert parsed.stop_loss == "2640.00"
+    assert len(parsed.targets) == 2
+    assert parsed.targets[0] == ("Target 1", "2670.00")
+    assert parsed.targets[1] == ("Target 2", "2690.00")
+    assert parsed.value == "0.25لات"
+
+    details = format_premium_signal_details(
+        order_type=parsed.order_type,
+        entry_price=parsed.entry_price,
+        stop_loss=parsed.stop_loss,
+        targets=parsed.targets,
+        value=parsed.value,
+    )
+    assert "🔵 Buy: `2650.50`" in details
+    assert "⚫️ Stop loss: `2640.00`" in details
+    assert "🟢 Target 1: `2670.00`" in details
+    assert "🟢 Target 2: `2690.00`" in details
+    assert "🗻 value: `0.25`لات" in details
+
+
+def test_parse_and_reveal_forwarded_post_guarantees_all_parameters():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: مشاهده (https://t.me/Farex_Robot?start=50)\n"
+        "🟢 Target 1: مشاهده (https://t.me/Farex_Robot?start=50)\n"
+        "🟢 Target 2: مشاهده (https://t.me/Farex_Robot?start=50)\n"
+        "🗻 value: 0.17لات\n"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "0.81630"
+    assert parsed.stop_loss == "مشاهده"
+    assert len(parsed.targets) == 2
+    assert parsed.targets[0] == ("Target 1", "مشاهده")
+    assert parsed.targets[1] == ("Target 2", "مشاهده")
+
+    details = format_premium_signal_details(
+        order_type=parsed.order_type,
+        entry_price=parsed.entry_price,
+        stop_loss=parsed.stop_loss,
+        targets=parsed.targets,
+        value=parsed.value,
+    )
+    assert "🔵 Buy limit: `0.81630`" in details
+    assert "⚫️ Stop loss: مشاهده" in details
+    assert "🟢 Target 1: مشاهده" in details
+    assert "🟢 Target 2: مشاهده" in details
+    assert "🗻 value: `0.17`لات" in details
+
 
