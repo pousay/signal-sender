@@ -58,3 +58,27 @@ def test_storage_metadata_allocation():
     id2 = meta.allocate_signal_id()
     assert id2 == 2
     assert meta.next_signal_id == 3
+
+
+def test_storage_metadata_daily_code_allocation():
+    meta = StorageMetadata()
+    day1 = datetime(2026, 11, 8, 10, 0, tzinfo=timezone.utc)
+    code1 = meta.allocate_daily_signal_code(day1)
+    assert code1 == "140508171"
+    assert meta.daily_signal_date == "14050817"
+    assert meta.daily_signal_seq == 1
+
+    code2 = meta.allocate_daily_signal_code(day1)
+    assert code2 == "140508172"
+    assert meta.daily_signal_seq == 2
+
+    code3 = meta.allocate_daily_signal_code(day1)
+    assert code3 == "140508173"
+    assert meta.daily_signal_seq == 3
+
+    # Transition to next day resets sequence to 1
+    day2 = datetime(2026, 11, 9, 8, 0, tzinfo=timezone.utc)
+    code4 = meta.allocate_daily_signal_code(day2)
+    assert code4 == "140508181"
+    assert meta.daily_signal_date == "14050818"
+    assert meta.daily_signal_seq == 1
