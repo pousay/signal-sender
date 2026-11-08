@@ -341,3 +341,36 @@ async def test_publish_preview_via_copy_message_handler(
     assert call_kwargs["from_chat_id"] == test_settings.SOURCE_CHANNEL_ID
     assert call_kwargs["message_id"] == 10
     assert not msg.reply_photo.called
+
+
+@pytest.mark.asyncio
+async def test_create_and_publish_draft_with_value_field(
+    test_settings: Settings, test_storage: StorageManager, seeded_photo_service: PhotoService
+):
+    """Verify value field is persisted on draft & record but absent from public caption."""
+    mock_client = MagicMock(spec=Client)
+    published_post = MagicMock(spec=Message)
+    published_post.id = 5555
+    mock_client.send_photo = AsyncMock(return_value=published_post)
+
+    pub_service = PublicationService(
+        mock_client, test_settings, test_storage, seeded_photo_service
+    )
+
+    signal_text = (
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target: 0.82000\n"
+        "🗻 value: 0.17لات\n"
+    )
+
+    draft, signal_id = await pub_service.create_draft(admin_id=100, original_text=signal_text)
+    assert draft.value == "0.17لات"
+    assert "value" not in draft.public_caption
+    assert "0.17لات" not in draft.public_caption
+    assert "🗻" not in draft.public_caption
+
+    record = await pub_service.publish_draft(draft.draft_id)
+    assert record.value == "0.17لات"
+    assert "value" not in record.public_caption
+    assert "0.17لات" not in record.public_caption

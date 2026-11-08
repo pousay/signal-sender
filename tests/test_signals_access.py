@@ -166,3 +166,64 @@ async def test_deep_link_signal_not_found(
     await captured_handler(mock_app, msg)
 
     msg.reply_text.assert_called_once_with(Messages.SIGNAL_NOT_FOUND)
+
+
+@pytest.mark.asyncio
+async def test_deep_link_premium_user_receives_copiable_value(
+    test_settings: Settings, test_storage: StorageManager
+):
+    """Verify premium subscriber receives copiable monospace details and value."""
+    # Seed a published signal with value and multi targets
+    record = SignalRecord(
+        id=77,
+        original_text="Buy limit: 0.81630\nStop loss: 94646\nvalue: 0.17لات",
+        order_type="Buy limit",
+        entry_price="0.81630",
+        stop_loss="94646",
+        targets=[("Target 1", "94646"), ("Target 2", "31551")],
+        value="0.17لات",
+        public_caption="Buy limit: [مشاهده](...)",
+        photo_file_id="photo_xyz",
+        channel_id=test_settings.CHANNEL_ID,
+        published_message_id=456,
+        status=SignalStatus.PUBLISHED,
+    )
+
+    def _seed(col):
+        col.add_signal(record)
+
+    await test_storage.signals.mutate(_seed, make_backup=False)
+
+    mock_app = MagicMock(spec=Client)
+    captured_handler = None
+
+    def capture_on_message(*args, **kwargs):
+        def decorator(f):
+            nonlocal captured_handler
+            captured_handler = f
+            return f
+
+        return decorator
+
+    mock_app.on_message = capture_on_message
+    sub_service = SubscriptionService(mock_app, test_settings, test_storage)
+    await sub_service.set_subscription(user_id=777, duration_days=30)
+    register_signal_handlers(mock_app, test_settings, test_storage, sub_service)
+
+    msg = MagicMock(spec=Message)
+    msg.text = "/start 77"
+    msg.from_user = MagicMock(spec=User)
+    msg.from_user.id = 777
+    msg.chat = MagicMock()
+    msg.chat.type = ChatType.PRIVATE
+    msg.reply_text = AsyncMock()
+
+    await captured_handler(mock_app, msg)
+
+    msg.reply_text.assert_called_once()
+    reply = msg.reply_text.call_args[0][0]
+    assert "🔵 Buy limit: `0.81630`" in reply
+    assert "⚫️ Stop loss: `94646`" in reply
+    assert "🟢 Target 1: `94646`" in reply
+    assert "🟢 Target 2: `31551`" in reply
+    assert "🗻 value: `0.17`لات" in reply
