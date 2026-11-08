@@ -36,6 +36,14 @@ RISK_REWARD_REGEX = re.compile(
 )
 CODE_LINE_REGEX = re.compile(r"(?i)^[ \t]*کد\s*[:=\-]?\s*.*$", re.MULTILINE)
 FOOTER_INSERT_REGEX = re.compile(r"(?i)^[ \t]*(?:🆔|👤|@)", re.MULTILINE)
+VALUE_REGEX = re.compile(
+    r"(?i)(?:^|[\n\r\s])(?:🗻|🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*value\s*[:=\-]?\s*([^\n\r]+)",
+    re.MULTILINE,
+)
+VALUE_STRIP_REGEX = re.compile(
+    r"(?i)^[ \t]*(?:🗻|🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*value\s*[:=\-]?\s*.*$(?:\n|\r\n)?",
+    re.MULTILINE,
+)
 
 
 class FormattingError(Exception):
@@ -59,6 +67,7 @@ class ParsedSignal:
     stop_loss: str | None = None
     target: str | None = None
     targets: list[tuple[str, str | None]] = field(default_factory=list)
+    value: str | None = None
     stop_loss_match_span: tuple[int, int] | None = None
 
     @property
@@ -147,12 +156,17 @@ def parse_signal_text(text: str) -> ParsedSignal:
     if not primary_tp and parsed_targets:
         primary_tp = parsed_targets[0][1]
 
+    # 4. Value (optional, e.g. '0.17لات')
+    val_match = VALUE_REGEX.search(norm_text)
+    val_str = val_match.group(1).strip() if val_match else None
+
     return ParsedSignal(
         order_type=order_type,
         entry_price=entry_price,
         stop_loss=sl_val,
         target=primary_tp,
         targets=parsed_targets,
+        value=val_str,
         stop_loss_match_span=sl_span,
     )
 
@@ -251,6 +265,9 @@ def generate_public_caption(
         return f"{prefix}{view_link}"
 
     caption = TARGET_REPLACE_REGEX.sub(_replace_target, caption)
+
+    # Strip private value field from public channel post and preview demo
+    caption = VALUE_STRIP_REGEX.sub("", caption)
 
     unix_ts = timestamp if timestamp is not None else int(time.time())
     caption = PRICE_NOW_REPLACE_REGEX.sub(f"[Price Now](tg://time?unix={unix_ts})", caption)
