@@ -236,6 +236,7 @@ def test_generate_public_caption_buy_signal():
         parsed=parsed,
         bot_username="Farex_Robot",
         signal_id=4,
+        risk_reward="1.30",
     )
 
     expected = (
@@ -243,10 +244,29 @@ def test_generate_public_caption_buy_signal():
         "🔵 Buy limit: 2230 \n"
         "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
         "🟢 Target: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
-        "⚖️ RR: بزرگتر از یک\n"
+        "⚖️ Risk/Reward : 1.30\n"
         "⏰ M15.H1"
     )
     assert caption == expected
+
+
+def test_generate_public_caption_standardizes_risk_reward():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target: 0.82000\n"
+        "⚖️ Risk/Riward : 1.30\n"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+        risk_reward="بین 1 الی 2",
+    )
+    assert "⚖️ Risk/Reward : بین 1 الی 2" in caption
 
 
 def test_generate_public_caption_crlf_input():
