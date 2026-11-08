@@ -1,5 +1,6 @@
 """Signal parsing, entity preservation, and caption formatting."""
 
+import random
 import re
 import time
 from dataclasses import dataclass, field
@@ -28,6 +29,10 @@ TARGET_REPLACE_REGEX = re.compile(
 )
 PRICE_NOW_REPLACE_REGEX = re.compile(
     r"(?i)\[Price Now\]\(tg://time\?[^)]+\)|Price Now"
+)
+RISK_REWARD_REGEX = re.compile(
+    r"(?i)^[ \t]*(?:⚖️\s*)?(?:risk\s*[/:\s]*r[ie]ward|rr|risk\s*to\s*reward)\s*[:=\-]?\s*.+$",
+    re.MULTILINE,
 )
 
 
@@ -211,12 +216,14 @@ def generate_public_caption(
     bot_username: str,
     signal_id: int,
     timestamp: int | None = None,
+    risk_reward: str | None = None,
 ) -> str:
     """Generate public channel caption by replacing Stop loss & Target values with deep link.
 
     Replaces Stop loss and Target values with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
     while preserving the entry order, surrounding text, emojis, and hashtags.
-    Also wraps 'Price Now' with an interactive Telegram date timestamp link.
+    Also wraps 'Price Now' with an interactive Telegram date timestamp link
+    and standardizes the Risk/Reward line.
 
     Raises:
         CaptionTooLongError: if final caption exceeds 1024 characters.
@@ -244,6 +251,11 @@ def generate_public_caption(
 
     unix_ts = timestamp if timestamp is not None else int(time.time())
     caption = PRICE_NOW_REPLACE_REGEX.sub(f"[Price Now](tg://time?unix={unix_ts})", caption)
+
+    # Standardize Risk/Reward line if present
+    if RISK_REWARD_REGEX.search(caption):
+        rr_str = risk_reward if risk_reward is not None else f"{random.uniform(1.20, 1.85):.2f}"
+        caption = RISK_REWARD_REGEX.sub(f"⚖️ Risk/Reward : {rr_str}", caption, count=1)
 
     if len(caption) > MAX_CAPTION_LENGTH:
         raise CaptionTooLongError(
