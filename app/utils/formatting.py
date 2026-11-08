@@ -7,23 +7,23 @@ from dataclasses import dataclass, field
 MAX_CAPTION_LENGTH = 1024
 
 ORDER_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(buy\s*limit|sell\s*limit|buy\s*stop|sell\s*stop|buy|sell)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
+    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*(buy\s*limit|sell\s*limit|buy\s*stop|sell\s*stop|buy|sell)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?)",
     re.MULTILINE,
 )
 STOP_LOSS_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|⚫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
+    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
     re.MULTILINE,
 )
 TARGET_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*((?:target|tp)(?:\s*[0-9]+)?)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
+    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*((?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
     re.MULTILINE,
 )
 STOP_LOSS_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|⚫️|\*|-)?\s*(?:stop\s*loss|stoploss|sl)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
+    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
     re.MULTILINE,
 )
 TARGET_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:target|tp)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
+    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
     re.MULTILINE,
 )
 PRICE_NOW_REPLACE_REGEX = re.compile(
@@ -67,6 +67,17 @@ class CaptionTooLongError(FormattingError):
 def to_persian_numbers(text: str) -> str:
     """Convert Latin digits (0-9) to Persian digits (۰-۹)."""
     return text.translate(PERSIAN_DIGITS_TABLE)
+
+
+def _clean_param_value(raw: str) -> str:
+    """Clean extracted parameter value, isolating numeric price or clean keyword."""
+    raw = raw.strip()
+    if "مشاهده" in raw:
+        return "مشاهده"
+    num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)", raw)
+    if num_m:
+        return num_m.group(1).replace(",", ".")
+    return raw
 
 
 @dataclass
@@ -146,9 +157,7 @@ def parse_signal_text(text: str) -> ParsedSignal:
             )
 
         primary_sl = sl_matches[0]
-        raw_sl = primary_sl.group(1).replace(",", ".")
-        if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", raw_sl):
-            sl_val = raw_sl
+        sl_val = _clean_param_value(primary_sl.group(1))
         sl_span = primary_sl.span(1)
 
     # 3. Targets (optional; supports Target, Target 1, Target 2, TP, etc.)
@@ -157,11 +166,19 @@ def parse_signal_text(text: str) -> ParsedSignal:
     primary_tp: str | None = None
 
     for m in target_matches:
-        lbl = re.sub(r"\s+", " ", m.group(1).strip())
-        raw_val = m.group(2).replace(",", ".")
-        val = raw_val if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", raw_val) else None
+        raw_lbl = re.sub(r"\s+", " ", m.group(1).strip())
+        num_suffix_m = re.search(r"[0-9]+$", raw_lbl)
+        suffix = f" {num_suffix_m.group(0)}" if num_suffix_m else ""
+        if any(p in raw_lbl for p in ("تارگت", "هدف")):
+            lbl = f"Target{suffix}"
+        elif raw_lbl.lower().startswith("tp"):
+            lbl = f"Target{suffix}" if suffix else "Target"
+        else:
+            lbl = raw_lbl
+
+        val = _clean_param_value(m.group(2))
         parsed_targets.append((lbl, val))
-        if primary_tp is None and val is not None:
+        if primary_tp is None:
             primary_tp = val
 
     if not primary_tp and parsed_targets:
@@ -209,26 +226,26 @@ def normalize_signal_emojis(text: str, order_type: str) -> str:
                 for e in ("🔹", "🔻", "🔺", "🟢", "🔴", "🔸", "▫️", "🔵", "⚫️")
             )
         ):
-            clean_title = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            clean_title = re.sub(r"^[^\w\n\r]*\s*", "", line)
             new_lines.append(f"{title_emoji} {clean_title}")
             title_updated = True
             continue
 
         # 2. Order line
         if ORDER_REGEX.search(line):
-            clean_order = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            clean_order = re.sub(r"^[^\w\n\r]*\s*", "", line)
             new_lines.append(f"{order_emoji} {clean_order}")
             continue
 
         # 3. Stop loss line
         if STOP_LOSS_REGEX.search(line):
-            clean_sl = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            clean_sl = re.sub(r"^[^\w\n\r]*\s*", "", line)
             new_lines.append(f"⚫️ {clean_sl}")
             continue
 
         # 4. Target line
         if TARGET_REGEX.search(line):
-            clean_tp = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            clean_tp = re.sub(r"^[^\w\n\r]*\s*", "", line)
             new_lines.append(f"🟢 {clean_tp}")
             continue
 
@@ -337,6 +354,8 @@ def format_premium_signal_details(
     def _mono(val: str) -> str:
         """Wrap numeric part with markdown backticks for Telegram tap-to-copy."""
         val = val.strip()
+        if "مشاهده" in val:
+            return val
         num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)(.*)$", val)
         if num_m:
             num_part = num_m.group(1)
