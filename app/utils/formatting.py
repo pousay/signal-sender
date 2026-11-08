@@ -1,6 +1,5 @@
 """Signal parsing, entity preservation, and caption formatting."""
 
-import random
 import re
 import time
 from dataclasses import dataclass, field
@@ -41,6 +40,7 @@ FOOTER_HANDLE_REGEX = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 STANDARDIZED_FOOTER = "🆔 @app_farex\n👤 @orginal"
+DEFAULT_RISK_REWARD = "بین 1 الی 2"
 VALUE_REGEX = re.compile(
     r"(?i)(?:^|[\n\r\s])(?:🗻|🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*value\s*[:=\-]?\s*([^\n\r]+)",
     re.MULTILINE,
@@ -279,7 +279,7 @@ def generate_public_caption(
 
     # Standardize Risk/Reward line if present
     if RISK_REWARD_REGEX.search(caption):
-        rr_str = risk_reward if risk_reward is not None else f"{random.uniform(1.20, 1.85):.2f}"
+        rr_str = risk_reward if risk_reward is not None else DEFAULT_RISK_REWARD
         caption = RISK_REWARD_REGEX.sub(f"⚖️ Risk/Reward : {rr_str}", caption, count=1)
 
     # Standardize footer handles if present
