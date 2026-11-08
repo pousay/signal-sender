@@ -146,6 +146,61 @@ def parse_signal_text(text: str) -> ParsedSignal:
     )
 
 
+def normalize_signal_emojis(text: str, order_type: str) -> str:
+    """Normalize emojis according to signal specifications:
+    - 🔵 for Buy title & order
+    - 🔴 for Sell title & order
+    - ⚫️ for Stop loss
+    - 🟢 for Target
+    """
+    is_buy = "buy" in order_type.lower()
+    title_emoji = "🔵" if is_buy else "🔴"
+    order_emoji = "🔵" if is_buy else "🔴"
+
+    lines = text.split("\n")
+    new_lines = []
+    title_updated = False
+
+    for line in lines:
+        stripped = line.strip()
+        # 1. Title line containing 'سیگنال' or starting with 'خرید' / 'فروش'
+        if not title_updated and (
+            "سیگنال" in stripped
+            or stripped.startswith("خرید")
+            or stripped.startswith("فروش")
+            or any(
+                stripped.startswith(e) and ("خرید" in stripped or "فروش" in stripped)
+                for e in ("🔹", "🔻", "🔺", "🟢", "🔴", "🔸", "▫️", "🔵", "⚫️")
+            )
+        ):
+            clean_title = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            new_lines.append(f"{title_emoji} {clean_title}")
+            title_updated = True
+            continue
+
+        # 2. Order line
+        if ORDER_REGEX.search(line):
+            clean_order = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            new_lines.append(f"{order_emoji} {clean_order}")
+            continue
+
+        # 3. Stop loss line
+        if STOP_LOSS_REGEX.search(line):
+            clean_sl = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            new_lines.append(f"⚫️ {clean_sl}")
+            continue
+
+        # 4. Target line
+        if TARGET_REGEX.search(line):
+            clean_tp = re.sub(r"^(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|🔵|⚫️|\*|-|\s)+", "", line)
+            new_lines.append(f"🟢 {clean_tp}")
+            continue
+
+        new_lines.append(line)
+
+    return "\n".join(new_lines)
+
+
 def generate_public_caption(
     original_text: str,
     parsed: ParsedSignal,
@@ -165,6 +220,7 @@ def generate_public_caption(
     view_link = f"[مشاهده]({deep_link})"
 
     norm_text = original_text.replace("\r\n", "\n").replace("\r", "\n")
+    norm_text = normalize_signal_emojis(norm_text, parsed.order_type)
 
     def _replace_sl(match: re.Match) -> str:
         prefix = match.group(1)

@@ -127,8 +127,8 @@ def test_parse_mosen_sample_with_view_stop_loss():
         bot_username="Farex_RoBot",
         signal_id=42,
     )
-    assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=42)" in caption
-    assert "🔹 Sell limit : 0.82030" in caption
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=42)" in caption
+    assert "🔴 Sell limit : 0.82030" in caption
 
 
 def test_parse_forwarded_post_with_existing_markdown_link():
@@ -149,7 +149,7 @@ def test_parse_forwarded_post_with_existing_markdown_link():
         bot_username="Farex_RoBot",
         signal_id=99,
     )
-    assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=99)" in caption
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_RoBot?start=99)" in caption
 
 
 def test_parse_and_caption_multiple_targets():
@@ -175,8 +175,8 @@ def test_parse_and_caption_multiple_targets():
         signal_id=50,
     )
     assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
-    assert "🟢Target 1: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
-    assert "🟢Target 2: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢 Target 1: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢 Target 2: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
 
 
 def test_parse_ambiguous_multiple_orders():
@@ -213,9 +213,9 @@ def test_generate_public_caption_hides_stop_loss_and_keeps_order_price():
 
     expected = (
         "🔴 سیگنال فروش طلا #XAUUSD\n"
-        "🔹 Sell limit: 77950\n"
-        "🔹 Stop loss: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
-        "🔹 Target: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
+        "🔴 Sell limit: 77950\n"
+        "⚫️ Stop loss: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
+        "🟢 Target: [مشاهده](https://t.me/my_signal_bot?start=175)\n"
         "موفق باشید 🌹"
     )
     assert caption == expected
@@ -239,10 +239,10 @@ def test_generate_public_caption_buy_signal():
     )
 
     expected = (
-        "🟢 سیگنال خرید اتریوم | ETH/USDT\n\n"
-        "🔹 Buy limit: 2230 \n"
-        "🔹 Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
-        "🔹 Target: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
+        "🔵 سیگنال خرید اتریوم | ETH/USDT\n\n"
+        "🔵 Buy limit: 2230 \n"
+        "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
+        "🟢 Target: [مشاهده](https://t.me/Farex_Robot?start=4) \n"
         "⚖️ RR: بزرگتر از یک\n"
         "⏰ M15.H1"
     )
@@ -259,9 +259,9 @@ def test_generate_public_caption_crlf_input():
         signal_id=10,
     )
     expected = (
-        "Sell limit: 100\n"
-        "Stop loss: [مشاهده](https://t.me/test_bot?start=10)\n"
-        "Target: [مشاهده](https://t.me/test_bot?start=10)\n"
+        "🔴 Sell limit: 100\n"
+        "⚫️ Stop loss: [مشاهده](https://t.me/test_bot?start=10)\n"
+        "🟢 Target: [مشاهده](https://t.me/test_bot?start=10)\n"
     )
     assert caption == expected
 
@@ -291,9 +291,9 @@ def test_generate_public_caption_user_sample_sell_bitcoin():
         bot_username="Farex_Robot",
         signal_id=4,
     )
-    assert "🔹 Sell limit: 77950" in caption
-    assert "🔹 Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
-    assert "🔹 Target: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
+    assert "🔴 Sell limit: 77950" in caption
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
+    assert "🟢 Target: [مشاهده](https://t.me/Farex_Robot?start=4)" in caption
     assert "قیمت در حال اصلاح صعودی به سمت محدوده مقاومتی 77950 است" in caption
 
 
