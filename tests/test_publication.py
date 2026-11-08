@@ -75,7 +75,7 @@ async def test_create_draft_success(
     assert signal_id == 1
     assert draft.sell_limit == "50000"
     assert draft.photo_file_id == "photo_123"
-    assert "[مشاهده](https://t.me/my_test_bot?start=1)" in draft.public_caption
+    assert '<a href="https://t.me/my_test_bot?start=1">مشاهده</a>' in draft.public_caption
     assert draft.daily_code is not None
     assert f"کد : {to_persian_numbers(draft.daily_code)}" in draft.public_caption
 

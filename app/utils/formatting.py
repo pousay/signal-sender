@@ -27,7 +27,7 @@ TARGET_REPLACE_REGEX = re.compile(
     re.MULTILINE,
 )
 PRICE_NOW_REPLACE_REGEX = re.compile(
-    r"(?i)\[Price Now\]\(tg://time\?[^)]+\)|Price Now"
+    r"(?i)\[Price Now\]\(tg://time\?[^)]+\)|<tg-time[^>]*>Price Now</tg-time>|Price Now"
 )
 RISK_REWARD_REGEX = re.compile(
     r"(?i)^[ \t]*(?:⚖️\s*)?(?:risk\s*[/:\s]*r[ie]ward|rr|risk\s*to\s*reward)\s*[:=\-]?\s*.+$",
@@ -258,7 +258,7 @@ def generate_public_caption(
     """
     clean_bot = bot_username.lstrip("@")
     deep_link = f"https://t.me/{clean_bot}?start={signal_id}"
-    view_link = f"[مشاهده]({deep_link})"
+    view_link = f'<a href="{deep_link}">مشاهده</a>'
 
     norm_text = original_text.replace("\r\n", "\n").replace("\r", "\n")
     norm_text = normalize_signal_emojis(norm_text, parsed.order_type)
@@ -281,7 +281,9 @@ def generate_public_caption(
     caption = VALUE_STRIP_REGEX.sub("", caption)
 
     unix_ts = timestamp if timestamp is not None else int(time.time())
-    caption = PRICE_NOW_REPLACE_REGEX.sub(f"[Price Now](tg://time?unix={unix_ts})", caption)
+    caption = PRICE_NOW_REPLACE_REGEX.sub(
+        f'<tg-time unix="{unix_ts}">Price Now</tg-time>', caption
+    )
 
     # Standardize Risk/Reward line if present
     if RISK_REWARD_REGEX.search(caption):

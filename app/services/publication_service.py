@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from pyrogram import Client
+from pyrogram.enums import ParseMode
 
 from app.config import Settings
 from app.keyboards.admin import get_channel_post_keyboard
@@ -167,6 +168,7 @@ class PublicationService:
                     from_chat_id=draft.source_chat_id,
                     message_id=draft.source_message_id,
                     caption=draft.public_caption,
+                    parse_mode=ParseMode.HTML,
                     reply_markup=keyboard,
                 )
             except Exception as copy_err:
@@ -182,6 +184,7 @@ class PublicationService:
                     chat_id=self.settings.CHANNEL_ID,
                     photo=draft.photo_file_id,
                     caption=draft.public_caption,
+                    parse_mode=ParseMode.HTML,
                     reply_markup=keyboard,
                 )
             except Exception as e:

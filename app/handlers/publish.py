@@ -3,6 +3,7 @@
 import logging
 
 from pyrogram import Client, ContinuePropagation, filters
+from pyrogram.enums import ParseMode
 from pyrogram.types import CallbackQuery, Message
 
 from app.config import Settings
@@ -95,6 +96,7 @@ def register_publish_handlers(
                         from_chat_id=draft.source_chat_id,
                         message_id=draft.source_message_id,
                         caption=preview_caption,
+                        parse_mode=ParseMode.HTML,
                         reply_markup=preview_keyboard,
                     )
                 except Exception as copy_err:
@@ -108,6 +110,7 @@ def register_publish_handlers(
                 preview_msg = await message.reply_photo(
                     photo=draft.photo_file_id,
                     caption=preview_caption,
+                    parse_mode=ParseMode.HTML,
                     reply_markup=preview_keyboard,
                 )
 
