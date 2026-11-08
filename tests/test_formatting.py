@@ -269,6 +269,64 @@ def test_generate_public_caption_standardizes_risk_reward():
     assert "⚖️ Risk/Reward : بین 1 الی 2" in caption
 
 
+def test_full_signal_format_v2_end_to_end():
+    raw_user_sample = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢Target 1: 0.81900\n"
+        "🟢Target 2: 0.82200\n"
+        "⚖️ Risk/Riward : 1.30\n"
+        "⏰ M15.H1\n"
+        "📊 Price Now ~ 0.81440 (💥19 پیپ تا فعال شدن💥)\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "🔍 دلیل ورود :\n"
+        "روند غالب نزولی و پرقدرت است.\n\n"
+        "#دلار_فرانک #سیگنال_معاملاتی\n"
+        "کد : 14050725\n"
+        "🆔 @app_farex\n"
+        "👤 @orginal"
+    )
+
+    parsed = parse_signal_text(raw_user_sample)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "0.81630"
+    assert parsed.stop_loss == "0.81200"
+    assert len(parsed.targets) == 2
+    assert parsed.targets[0] == ("Target 1", "0.81900")
+    assert parsed.targets[1] == ("Target 2", "0.82200")
+
+    caption = generate_public_caption(
+        original_text=raw_user_sample,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+        timestamp=1762621772,
+        risk_reward="1.30",
+    )
+
+    assert "🔵 سیگنال خرید دلار فرانک | USD/CHF" in caption
+    assert "🔵 Buy limit: 0.81630" in caption
+    assert "⚫️ Stop loss: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢 Target 1: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "🟢 Target 2: [مشاهده](https://t.me/Farex_Robot?start=50)" in caption
+    assert "⚖️ Risk/Reward : 1.30" in caption
+    assert "📊 [Price Now](tg://time?unix=1762621772) ~ 0.81440" in caption
+    assert "#دلار_فرانک #سیگنال_معاملاتی" in caption
+    assert "🆔 @app_farex" in caption
+
+    premium_details = format_premium_signal_details(
+        order_type=parsed.order_type,
+        entry_price=parsed.entry_price,
+        stop_loss=parsed.stop_loss,
+        targets=parsed.targets,
+    )
+    assert "🔵 Buy limit: 0.81630" in premium_details
+    assert "⚫️ Stop loss: 0.81200" in premium_details
+    assert "🟢 Target 1: 0.81900" in premium_details
+    assert "🟢 Target 2: 0.82200" in premium_details
+
+
 def test_generate_public_caption_crlf_input():
     raw = "Sell limit: 100\r\nStop loss: 110\r\nTarget: 90\r\n"
     parsed = parse_signal_text(raw)
