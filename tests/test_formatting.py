@@ -297,6 +297,25 @@ def test_generate_public_caption_user_sample_sell_bitcoin():
     assert "قیمت در حال اصلاح صعودی به سمت محدوده مقاومتی 77950 است" in caption
 
 
+def test_generate_public_caption_price_now_timestamp_link():
+    raw = (
+        "🔵 سیگنال خرید دلار فرانک | USD/CHF\n\n"
+        "🔵 Buy limit: 0.81630\n"
+        "⚫️ Stop loss: 0.81200\n"
+        "🟢 Target: 0.82000\n"
+        "📊 Price Now ~ 0.81440 (💥19 پیپ تا فعال شدن💥)\n"
+    )
+    parsed = parse_signal_text(raw)
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=50,
+        timestamp=1762621772,
+    )
+    assert "📊 [Price Now](tg://time?unix=1762621772) ~ 0.81440" in caption
+
+
 def test_generate_public_caption_too_long():
     long_text = "Sell limit: 100\nStop loss: 110\n" + ("A" * 1020)
     parsed = parse_signal_text(long_text)

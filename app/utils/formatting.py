@@ -1,6 +1,7 @@
 """Signal parsing, entity preservation, and caption formatting."""
 
 import re
+import time
 from dataclasses import dataclass, field
 
 MAX_CAPTION_LENGTH = 1024
@@ -24,6 +25,9 @@ STOP_LOSS_REPLACE_REGEX = re.compile(
 TARGET_REPLACE_REGEX = re.compile(
     r"(?i)((?:^|[\n\r\s])(?:🔹|🔻|🔺|🟢|🔴|🔸|▫️|\*|-)?\s*(?:target|tp)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|\[?مشاهده\]?(?:\s*\([^)]+\))?)",
     re.MULTILINE,
+)
+PRICE_NOW_REPLACE_REGEX = re.compile(
+    r"(?i)\[Price Now\]\(tg://time\?[^)]+\)|Price Now"
 )
 
 
@@ -206,11 +210,13 @@ def generate_public_caption(
     parsed: ParsedSignal,
     bot_username: str,
     signal_id: int,
+    timestamp: int | None = None,
 ) -> str:
     """Generate public channel caption by replacing Stop loss & Target values with deep link.
 
     Replaces Stop loss and Target values with `[مشاهده](https://t.me/{bot_username}?start={signal_id})`
     while preserving the entry order, surrounding text, emojis, and hashtags.
+    Also wraps 'Price Now' with an interactive Telegram date timestamp link.
 
     Raises:
         CaptionTooLongError: if final caption exceeds 1024 characters.
@@ -235,6 +241,9 @@ def generate_public_caption(
         return f"{prefix}{view_link}"
 
     caption = TARGET_REPLACE_REGEX.sub(_replace_target, caption)
+
+    unix_ts = timestamp if timestamp is not None else int(time.time())
+    caption = PRICE_NOW_REPLACE_REGEX.sub(f"[Price Now](tg://time?unix={unix_ts})", caption)
 
     if len(caption) > MAX_CAPTION_LENGTH:
         raise CaptionTooLongError(
