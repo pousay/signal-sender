@@ -304,6 +304,7 @@ def format_premium_signal_details(
     stop_loss: str | None = None,
     target: str | None = None,
     targets: list[tuple[str, str | None]] | None = None,
+    value: str | None = None,
     sell_limit: str | None = None,
 ) -> str:
     """Format full real signal parameters for active premium members."""
@@ -312,23 +313,36 @@ def format_premium_signal_details(
     if not order_type:
         order_type = "Sell limit"
 
+    def _mono(val: str) -> str:
+        """Wrap numeric part with markdown backticks for Telegram tap-to-copy."""
+        val = val.strip()
+        num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)(.*)$", val)
+        if num_m:
+            num_part = num_m.group(1)
+            rest_part = num_m.group(2)
+            return f"`{num_part}`{rest_part}"
+        return f"`{val}`"
+
     lines = []
     if entry_price:
         clean_label = order_type.strip(": ")
         is_buy = "buy" in clean_label.lower()
         order_emoji = "🔵" if is_buy else "🔴"
-        lines.append(f"{order_emoji} {clean_label}: {entry_price}")
+        lines.append(f"{order_emoji} {clean_label}: {_mono(entry_price)}")
     if stop_loss:
-        lines.append(f"⚫️ Stop loss: {stop_loss}")
+        lines.append(f"⚫️ Stop loss: {_mono(stop_loss)}")
 
     if targets:
         valid_targets = [(lbl, val) for lbl, val in targets if val]
         if valid_targets:
             for lbl, val in valid_targets:
-                lines.append(f"🟢 {lbl}: {val}")
+                lines.append(f"🟢 {lbl}: {_mono(val)}")
         elif target:
-            lines.append(f"🟢 Target: {target}")
+            lines.append(f"🟢 Target: {_mono(target)}")
     elif target:
-        lines.append(f"🟢 Target: {target}")
+        lines.append(f"🟢 Target: {_mono(target)}")
+
+    if value:
+        lines.append(f"🗻 value: {_mono(value)}")
 
     return "\n".join(lines)

@@ -92,9 +92,9 @@ async def test_deep_link_premium_user_receives_details(
 
     msg.reply_text.assert_called_once()
     reply = msg.reply_text.call_args[0][0]
-    assert "Sell limit: 77950" in reply
-    assert "Stop loss: 78650" in reply
-    assert "Target: 76900" in reply
+    assert "Sell limit: `77950`" in reply
+    assert "Stop loss: `78650`" in reply
+    assert "Target: `76900`" in reply
 
 
 @pytest.mark.asyncio
