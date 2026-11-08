@@ -35,6 +35,9 @@ class SignalRecord(BaseModel):
     )
     stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
     target: str | None = Field(default=None, description="Extracted Target value if parsed")
+    targets: list[tuple[str, str | None]] = Field(
+        default_factory=list, description="Extracted multiple targets"
+    )
     public_caption: str = Field(..., description="Generated public caption with deep link")
     photo_file_id: str = Field(..., description="Telegram photo file_id used for publication")
     channel_id: int | str = Field(..., description="Target channel identifier")
@@ -73,6 +76,9 @@ class SignalDraft(BaseModel):
     )
     stop_loss: str | None = Field(default=None, description="Extracted Stop loss value")
     target: str | None = Field(default=None, description="Extracted Target value")
+    targets: list[tuple[str, str | None]] = Field(
+        default_factory=list, description="Extracted multiple targets"
+    )
     public_caption: str = Field(..., description="Prepared public caption")
     photo_file_id: str = Field(..., description="Selected photo file_id or local path")
     source_message_id: int | None = Field(
