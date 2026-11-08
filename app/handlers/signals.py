@@ -9,7 +9,7 @@ from app.config import Settings
 from app.keyboards.common import get_support_keyboard
 from app.services.subscription_service import SubscriptionService
 from app.storage.repositories import StorageManager
-from app.utils.formatting import format_premium_signal_details
+from app.utils.formatting import format_premium_signal_details, parse_signal_text
 from app.utils.messages import Messages
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,37 @@ async def deliver_signal_details(
     is_premium = await subscription_service.is_premium_active(user_id)
 
     if is_premium:
+        stop_loss = signal.stop_loss
+        target = signal.target
+        targets = getattr(signal, "targets", None)
+        order_type = getattr(signal, "order_type", "Sell limit")
+        entry_price = getattr(signal, "entry_price", signal.sell_limit)
+        value = getattr(signal, "value", None)
+
+        if (not stop_loss or not (targets or target)) and getattr(signal, "original_text", None):
+            try:
+                reparsed = parse_signal_text(signal.original_text)
+                if not stop_loss:
+                    stop_loss = reparsed.stop_loss
+                if not (targets or target):
+                    targets = reparsed.targets
+                    target = reparsed.target
+                if not order_type:
+                    order_type = reparsed.order_type
+                if not entry_price:
+                    entry_price = reparsed.entry_price
+                if not value:
+                    value = reparsed.value
+            except Exception as e:
+                logger.warning("Resilient signal reparsing failed: %s", e)
+
         details = format_premium_signal_details(
-            order_type=getattr(signal, "order_type", "Sell limit"),
-            entry_price=getattr(signal, "entry_price", signal.sell_limit),
-            stop_loss=signal.stop_loss,
-            target=signal.target,
-            targets=getattr(signal, "targets", None),
-            value=getattr(signal, "value", None),
+            order_type=order_type,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            target=target,
+            targets=targets,
+            value=value,
             sell_limit=signal.sell_limit,
         )
         if isinstance(reply_target, CallbackQuery):
