@@ -246,8 +246,8 @@ def test_generate_public_caption_buy_signal():
     expected = (
         "🔵 سیگنال خرید اتریوم | ETH/USDT\n\n"
         "🔵 Buy limit: 2230 \n"
-        '⚫️ Stop loss: <a href="https://t.me/Farex_Robot?start=4">مشاهده</a> \n'
-        '🟢 Target: <a href="https://t.me/Farex_Robot?start=4">مشاهده</a> \n'
+        '⚫️ Stop loss: <a href="https://t.me/Farex_Robot?start=4">مشاهده</a>\n'
+        '🟢 Target: <a href="https://t.me/Farex_Robot?start=4">مشاهده</a>\n'
         "⚖️ Risk/Reward : 1.30\n"
         "⏰ M15.H1"
     )

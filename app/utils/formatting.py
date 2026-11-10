@@ -19,11 +19,11 @@ TARGET_REGEX = re.compile(
     re.MULTILINE,
 )
 STOP_LOSS_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
+    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*)([^\n\r]+)",
     re.MULTILINE,
 )
 TARGET_REPLACE_REGEX = re.compile(
-    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
+    r"(?i)((?:^|[\n\r])\s*[^\w\n\r]*\s*(?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?\s*[:=\-]?\s*)([^\n\r]+)",
     re.MULTILINE,
 )
 PRICE_NOW_REPLACE_REGEX = re.compile(
