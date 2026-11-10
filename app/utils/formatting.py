@@ -364,7 +364,7 @@ def format_premium_signal_details(
         order_type = "Sell limit"
 
     def _mono(val: str) -> str:
-        """Wrap numeric part with markdown backticks for Telegram tap-to-copy."""
+        """Wrap numeric part with markdown backticks for Telegram tap-to-copy, preserving notes."""
         val = val.strip()
         if "مشاهده" in val:
             return val
@@ -372,6 +372,8 @@ def format_premium_signal_details(
         if num_m:
             num_part = num_m.group(1)
             rest_part = num_m.group(2)
+            if rest_part and not rest_part.startswith(" ") and rest_part.startswith("("):
+                rest_part = f" {rest_part}"
             return f"`{num_part}`{rest_part}"
         return f"`{val}`"
 
