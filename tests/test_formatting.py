@@ -795,3 +795,96 @@ def test_parse_and_reveal_forwarded_post_guarantees_all_parameters():
     assert "🗻 value: `0.17`لات" in details
 
 
+def test_user_silver_signal_preserves_full_target_pip_notes_and_hides_in_public():
+    raw = (
+        "🔵 سیگنال خرید نقره | XAG/USD\n\n"
+        "🔵 Buy limit: 52.500\n"
+        "⚫️ Stop loss: 51.500 (50 pip)\n"
+        "🟢 Target 1: 53.500 (100 پیپ)\n"
+        "🟢 Target 2: 54.000 (150 پیپ)\n"
+        "⚖️ Risk/Reward : بین 1 الی 2\n"
+        "⏰ M15.H1\n"
+        "📊 Price Now ~ 52.745 (💥24 پیپ تا نقطه ورود)\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "🔍 دلایل ورود :\n"
+        "ناحیه تقاضا.\n\n"
+        "#نقره #سیگنال_معاملاتی\n"
+        "📅سیگنال پندینگ میباشد.\n"
+        "کد : ۱۴۰۵۰۸۱۸۷\n"
+        "🆔 @app_farex\n"
+        "👤 @orginal"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "52.500"
+    assert parsed.stop_loss == "51.500 (50 pip)"
+    assert len(parsed.targets) == 2
+    assert parsed.targets[0] == ("Target 1", "53.500 (100 پیپ)")
+    assert parsed.targets[1] == ("Target 2", "54.000 (150 پیپ)")
+
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=85,
+    )
+    assert '⚫️ Stop loss: <a href="https://t.me/Farex_Robot?start=85">مشاهده</a>' in caption
+    assert '🟢 Target 1: <a href="https://t.me/Farex_Robot?start=85">مشاهده</a>' in caption
+    assert '🟢 Target 2: <a href="https://t.me/Farex_Robot?start=85">مشاهده</a>' in caption
+    assert "(100 پیپ)" not in caption
+    assert "(150 پیپ)" not in caption
+    assert "(50 pip)" not in caption
+    assert "🔵 Buy limit: 52.500" in caption
+
+    details = format_premium_signal_details(
+        order_type=parsed.order_type,
+        entry_price=parsed.entry_price,
+        stop_loss=parsed.stop_loss,
+        targets=parsed.targets,
+    )
+    assert "🔵 Buy limit: `52.500`" in details
+    assert "⚫️ Stop loss: `51.500` (50 pip)" in details
+    assert "🟢 Target 1: `53.500` (100 پیپ)" in details
+    assert "🟢 Target 2: `54.000` (150 پیپ)" in details
+
+
+def test_forwarded_post_with_view_link_and_pip_notes():
+    raw = (
+        "🔵 سیگنال خرید نقره | XAG/USD\n\n"
+        "🔵 Buy limit: 52.500\n"
+        "⚫️ Stop loss: مشاهده (https://t.me/Farex_Robot?start=85)\n"
+        "🟢 Target 1: مشاهده (https://t.me/Farex_Robot?start=85) (100 پیپ)\n"
+        "🟢 Target 2: مشاهده (https://t.me/Farex_Robot?start=85) (150 پیپ)\n"
+    )
+    parsed = parse_signal_text(raw)
+    assert parsed.order_type == "Buy limit"
+    assert parsed.entry_price == "52.500"
+    assert parsed.stop_loss == "مشاهده"
+    assert parsed.targets[0] == ("Target 1", "مشاهده (100 پیپ)")
+    assert parsed.targets[1] == ("Target 2", "مشاهده (150 پیپ)")
+
+    caption = generate_public_caption(
+        original_text=raw,
+        parsed=parsed,
+        bot_username="Farex_Robot",
+        signal_id=90,
+    )
+    assert '⚫️ Stop loss: <a href="https://t.me/Farex_Robot?start=90">مشاهده</a>' in caption
+    assert '🟢 Target 1: <a href="https://t.me/Farex_Robot?start=90">مشاهده</a>' in caption
+    assert '🟢 Target 2: <a href="https://t.me/Farex_Robot?start=90">مشاهده</a>' in caption
+    assert "(100 پیپ)" not in caption
+    assert "(150 پیپ)" not in caption
+
+    details = format_premium_signal_details(
+        order_type=parsed.order_type,
+        entry_price=parsed.entry_price,
+        stop_loss=parsed.stop_loss,
+        targets=parsed.targets,
+    )
+    assert "🔵 Buy limit: `52.500`" in details
+    assert "⚫️ Stop loss: مشاهده" in details
+    assert "🟢 Target 1: مشاهده (100 پیپ)" in details
+    assert "🟢 Target 2: مشاهده (150 پیپ)" in details
+
+
+
