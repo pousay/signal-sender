@@ -11,11 +11,11 @@ ORDER_REGEX = re.compile(
     re.MULTILINE,
 )
 STOP_LOSS_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
+    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*(?:stop\s*loss|stoploss|sl|حد\s*ضرر)\s*[:=\-]?\s*([^\n\r]+)",
     re.MULTILINE,
 )
 TARGET_REGEX = re.compile(
-    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*((?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?)\s*[:=\-]?\s*([0-9]+(?:[.,][0-9]+)?|<a\s+href=[^>]+>[^<]+</a>|\[?مشاهده\]?(?:\s*\([^)]+\))?|[^\n\r]+)",
+    r"(?i)(?:^|[\n\r])\s*[^\w\n\r]*\s*((?:target|tp|تارگت|هدف)(?:\s*[0-9]+)?)\s*[:=\-]?\s*([^\n\r]+)",
     re.MULTILINE,
 )
 STOP_LOSS_REPLACE_REGEX = re.compile(
@@ -70,13 +70,24 @@ def to_persian_numbers(text: str) -> str:
 
 
 def _clean_param_value(raw: str) -> str:
-    """Clean extracted parameter value, isolating numeric price or clean keyword."""
+    """Clean extracted parameter value, preserving full notes and cleaning links."""
     raw = raw.strip()
+    # Strip HTML anchor tags or Markdown links around مشاهده
+    raw = re.sub(r"<a\s+href=[^>]+>(.*?)</a>", r"\1", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"\[(.*?)\]\([^)]+\)", r"\1", raw)
+    # Strip raw url in parenthesis after مشاهده e.g. مشاهده (https://t.me/...)
+    raw = re.sub(r"مشاهده\s*\((?:https?://)?t\.me/[^)]+\)", "مشاهده", raw)
+
     if "مشاهده" in raw:
-        return "مشاهده"
-    num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)", raw)
+        return re.sub(r"\s+", " ", raw).strip()
+
+    num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)(.*)$", raw)
     if num_m:
-        return num_m.group(1).replace(",", ".")
+        num_part = num_m.group(1).replace(",", ".")
+        rest_part = num_m.group(2).strip()
+        if rest_part:
+            return f"{num_part} {rest_part}"
+        return num_part
     return raw
 
 
@@ -146,11 +157,12 @@ def parse_signal_text(text: str) -> ParsedSignal:
     sl_span: tuple[int, int] | None = None
 
     if sl_matches:
-        numeric_sl_values = {
-            m.group(1).replace(",", ".")
-            for m in sl_matches
-            if re.match(r"^[0-9]+(?:[.,][0-9]+)?$", m.group(1).replace(",", "."))
-        }
+        numeric_sl_values = set()
+        for m in sl_matches:
+            cleaned = _clean_param_value(m.group(1))
+            num_m = re.match(r"^([0-9]+(?:[.,][0-9]+)?)", cleaned)
+            if num_m:
+                numeric_sl_values.add(num_m.group(1))
         if len(numeric_sl_values) > 1:
             raise SignalParseError(
                 "Ambiguous signal text containing multiple distinct 'Stop loss' values"
