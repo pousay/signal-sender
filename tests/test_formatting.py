@@ -122,7 +122,7 @@ def test_parse_mosen_sample_with_view_stop_loss():
     assert parsed.order_type == "Sell limit"
     assert parsed.entry_price == "0.82030"
     assert parsed.stop_loss == "مشاهده"
-    assert parsed.target == "0.81470"
+    assert parsed.target == "0.81470 (56 pip)"
 
     caption = generate_public_caption(
         original_text=raw,
@@ -145,7 +145,7 @@ def test_parse_forwarded_post_with_existing_markdown_link():
     assert parsed.order_type == "Sell limit"
     assert parsed.entry_price == "0.82030"
     assert parsed.stop_loss == "مشاهده"
-    assert parsed.target == "0.81470"
+    assert parsed.target == "0.81470 (56 pip)"
 
     caption = generate_public_caption(
         original_text=raw,
